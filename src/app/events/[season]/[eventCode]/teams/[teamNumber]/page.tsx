@@ -155,7 +155,7 @@ export default function TeamProfilePage({
               showAllNotes={showAllNotes}
               onToggleAll={() => setShowAllNotes(v => !v)}
               eventsData={eventsData}
-              onMutate={mutateNotes}
+              onMutate={(data?: Note[]) => mutateNotes(data, { revalidate: false })}
             />
           )}
 
@@ -313,10 +313,11 @@ function ScoutNotes({
   showAllNotes: boolean
   onToggleAll: () => void
   eventsData: EventsResponse | undefined
-  onMutate: () => void
+  onMutate: (data?: Note[]) => void
 }) {
   const [input, setInput] = useState('')
   const [saving, setSaving] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   function eventName(code: string) {
     return eventsData?.events.find(e => e.code === code)?.name ?? code
@@ -324,13 +325,13 @@ function ScoutNotes({
 
   async function saveNotes(updated: Note[]) {
     setSaving(true)
+    onMutate(updated) // optimistic update — no refetch needed
     try {
       await fetch(`/api/notes/${season}/${eventCode}/${teamNumber}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updated),
       })
-      onMutate()
     } finally {
       setSaving(false)
     }
@@ -344,7 +345,8 @@ function ScoutNotes({
     await saveNotes([...notes, note])
   }
 
-  async function deleteNote(id: string) {
+  async function confirmDelete(id: string) {
+    setConfirmDeleteId(null)
     await saveNotes(notes.filter(n => n.id !== id))
   }
 
@@ -378,12 +380,31 @@ function ScoutNotes({
                 {new Date(n.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
-            <button
-              onClick={() => deleteNote(n.id)}
-              className="text-zinc-700 hover:text-red-400 transition-colors shrink-0 mt-0.5"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            {confirmDeleteId === n.id ? (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-[10px] text-zinc-400">Delete?</span>
+                <button
+                  onClick={() => confirmDelete(n.id)}
+                  className="text-[10px] font-semibold text-red-400 hover:text-red-300 transition-colors"
+                >
+                  Yes
+                </button>
+                <button
+                  onClick={() => setConfirmDeleteId(null)}
+                  className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
+                >
+                  No
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmDeleteId(n.id)}
+                disabled={saving}
+                className="text-zinc-700 hover:text-red-400 transition-colors shrink-0 mt-0.5 disabled:opacity-40"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         ))}
       </div>
