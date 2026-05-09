@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { Camera, Upload, ExternalLink, X, ZoomIn } from 'lucide-react'
 import { useScoutMode } from '@/lib/scout-mode'
 import { calculateOPR } from '@/lib/opr'
-import type { TeamsResponse, HybridScheduleResponse } from '@/lib/ftc-client'
+import type { TeamsResponse, HybridScheduleResponse, EventsResponse } from '@/lib/ftc-client'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
@@ -33,6 +33,11 @@ export default function TeamProfilePage({
 
   const { data: photoData, mutate: mutatePhoto } = useSWR<{ url: string | null }>(
     `/api/photos/${season}/${eventCode}/${teamNumber}`,
+    fetcher
+  )
+
+  const { data: eventsData } = useSWR<EventsResponse>(
+    `/api/ftc/${season}/events?teamNumber=${teamNumber}`,
     fetcher
   )
 
@@ -228,6 +233,39 @@ export default function TeamProfilePage({
               </div>
             )}
           </div>
+
+          {/* Season events */}
+          {eventsData?.events && eventsData.events.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">
+                Events This Season
+              </h3>
+              <div className="flex flex-col gap-1.5">
+                {eventsData.events
+                  .filter(e => e.published)
+                  .sort((a, b) => new Date(a.dateStart).getTime() - new Date(b.dateStart).getTime())
+                  .map(e => {
+                    const isCurrent = e.code === eventCode
+                    return (
+                      <Link
+                        key={e.code}
+                        href={`/events/${season}/${e.code}/teams/${teamNumber}`}
+                        className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs transition-colors ${
+                          isCurrent
+                            ? 'border-orange-500/30 bg-orange-500/5 text-zinc-300'
+                            : 'border-zinc-800 hover:border-zinc-600 text-zinc-400 hover:text-zinc-200'
+                        }`}
+                      >
+                        <span className="truncate">{e.name}</span>
+                        <span className="text-zinc-600 font-mono shrink-0">
+                          {new Date(e.dateStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                      </Link>
+                    )
+                  })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
