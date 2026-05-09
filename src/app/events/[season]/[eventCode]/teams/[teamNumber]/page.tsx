@@ -4,7 +4,7 @@ import { use, useEffect, useRef, useState } from 'react'
 import useSWR from 'swr'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Camera, Upload, ExternalLink, X, ZoomIn, Trash2 } from 'lucide-react'
+import { Camera, Upload, ExternalLink, X, ZoomIn, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import { useScoutMode } from '@/lib/scout-mode'
 import { calculateOPR } from '@/lib/opr'
 import type { TeamsResponse, HybridScheduleResponse, EventsResponse } from '@/lib/ftc-client'
@@ -357,6 +357,7 @@ function PitScoutingForm({
   saved: PitScoutingData | null
   onSave: (data: PitScoutingData) => void
 }) {
+  const [expanded, setExpanded] = useState(false)
   const [form, setForm] = useState<PitScoutingData>(saved ?? EMPTY_PIT)
   const [saving, setSaving] = useState(false)
   const [savedOk, setSavedOk] = useState(false)
@@ -378,10 +379,15 @@ function PitScoutingForm({
       })
       onSave(form)
       setSavedOk(true)
+      setExpanded(false)
     } finally {
       setSaving(false)
     }
   }
+
+  const hasSavedData = saved && (
+    saved.drivetrain || saved.auto || saved.teleop || saved.endgame || saved.consistency || saved.notes
+  )
 
   const selectClass = 'w-full h-8 px-2 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 focus:outline-none focus:border-orange-500 appearance-none'
 
@@ -389,71 +395,124 @@ function PitScoutingForm({
     <div>
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Pit Scouting</h3>
-        <span className="text-[10px] text-zinc-700 italic">BioBuzz questions coming when season releases</span>
-      </div>
-
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 flex flex-col gap-3">
-        {/* Select fields */}
-        {(Object.keys(PIT_FIELDS) as (keyof typeof PIT_FIELDS)[]).map(key => (
-          <div key={key}>
-            <label className="block text-[10px] text-zinc-500 mb-1">{PIT_FIELDS[key].label}</label>
-            <select
-              value={form[key]}
-              onChange={e => set(key, e.target.value)}
-              className={selectClass}
-            >
-              <option value="">— select —</option>
-              {PIT_FIELDS[key].options.map(o => (
-                <option key={o} value={o}>{o}</option>
-              ))}
-            </select>
-          </div>
-        ))}
-
-        {/* Consistency rating */}
-        <div>
-          <label className="block text-[10px] text-zinc-500 mb-1">Consistency (1–5)</label>
-          <div className="flex gap-1.5">
-            {[1, 2, 3, 4, 5].map(n => (
-              <button
-                key={n}
-                onClick={() => set('consistency', form.consistency === n ? null : n)}
-                className={`w-8 h-8 rounded-md text-xs font-semibold border transition-colors ${
-                  form.consistency === n
-                    ? 'bg-orange-500/20 border-orange-500/50 text-orange-300'
-                    : 'border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Overall notes */}
-        <div>
-          <label className="block text-[10px] text-zinc-500 mb-1">Overall Notes</label>
-          <textarea
-            value={form.notes}
-            onChange={e => set('notes', e.target.value)}
-            placeholder="Observations, strengths, weaknesses…"
-            rows={3}
-            className="w-full px-2.5 py-2 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500 resize-none"
-          />
-        </div>
-
-        {/* Save */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-zinc-700 italic">BioBuzz questions coming when season releases</span>
           <button
-            onClick={handleSave}
-            disabled={saving}
-            className="h-8 px-4 text-xs rounded-md border border-orange-500/40 bg-orange-500/10 text-orange-300 hover:bg-orange-500/20 transition-colors disabled:opacity-40"
+            onClick={() => setExpanded(v => !v)}
+            className="text-zinc-600 hover:text-zinc-300 transition-colors"
+            aria-label={expanded ? 'Collapse' : 'Expand'}
           >
-            {saving ? 'Saving…' : 'Save'}
+            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
-          {savedOk && <span className="text-xs text-green-400">Saved ✓</span>}
         </div>
       </div>
+
+      {/* Collapsed summary */}
+      {!expanded && (
+        <button
+          onClick={() => setExpanded(true)}
+          className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-left hover:border-zinc-600 transition-colors"
+        >
+          {hasSavedData ? (
+            <div className="flex flex-wrap gap-1.5 items-center">
+              {form.drivetrain && (
+                <span className="text-[10px] bg-zinc-800 text-zinc-300 rounded px-1.5 py-0.5">{form.drivetrain}</span>
+              )}
+              {form.auto && (
+                <span className="text-[10px] bg-zinc-800 text-zinc-300 rounded px-1.5 py-0.5">Auto: {form.auto}</span>
+              )}
+              {form.teleop && (
+                <span className="text-[10px] bg-zinc-800 text-zinc-300 rounded px-1.5 py-0.5">Teleop: {form.teleop}</span>
+              )}
+              {form.endgame && (
+                <span className="text-[10px] bg-zinc-800 text-zinc-300 rounded px-1.5 py-0.5">{form.endgame}</span>
+              )}
+              {form.consistency && (
+                <span className="text-[10px] bg-orange-500/10 text-orange-300 rounded px-1.5 py-0.5">
+                  Consistency: {form.consistency}/5
+                </span>
+              )}
+              {form.notes && (
+                <span className="text-[10px] text-zinc-500 truncate max-w-[200px]">{form.notes}</span>
+              )}
+            </div>
+          ) : (
+            <span className="text-xs text-zinc-600 italic">Not yet scouted — click to fill in</span>
+          )}
+        </button>
+      )}
+
+      {/* Expanded form */}
+      {expanded && (
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 flex flex-col gap-3">
+          {/* Select fields */}
+          {(Object.keys(PIT_FIELDS) as (keyof typeof PIT_FIELDS)[]).map(key => (
+            <div key={key}>
+              <label className="block text-[10px] text-zinc-500 mb-1">{PIT_FIELDS[key].label}</label>
+              <select
+                value={form[key]}
+                onChange={e => set(key, e.target.value)}
+                className={selectClass}
+              >
+                <option value="">— select —</option>
+                {PIT_FIELDS[key].options.map(o => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </select>
+            </div>
+          ))}
+
+          {/* Consistency rating */}
+          <div>
+            <label className="block text-[10px] text-zinc-500 mb-1">Consistency (1–5)</label>
+            <div className="flex gap-1.5">
+              {[1, 2, 3, 4, 5].map(n => (
+                <button
+                  key={n}
+                  onClick={() => set('consistency', form.consistency === n ? null : n)}
+                  className={`w-8 h-8 rounded-md text-xs font-semibold border transition-colors ${
+                    form.consistency === n
+                      ? 'bg-orange-500/20 border-orange-500/50 text-orange-300'
+                      : 'border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Overall notes */}
+          <div>
+            <label className="block text-[10px] text-zinc-500 mb-1">Overall Notes</label>
+            <textarea
+              value={form.notes}
+              onChange={e => set('notes', e.target.value)}
+              placeholder="Observations, strengths, weaknesses…"
+              rows={3}
+              className="w-full px-2.5 py-2 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500 resize-none"
+            />
+          </div>
+
+          {/* Save / Cancel */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="h-8 px-4 text-xs rounded-md border border-orange-500/40 bg-orange-500/10 text-orange-300 hover:bg-orange-500/20 transition-colors disabled:opacity-40"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              onClick={() => { setExpanded(false); setSavedOk(false) }}
+              className="h-8 px-3 text-xs rounded-md border border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 transition-colors"
+            >
+              Cancel
+            </button>
+            {savedOk && <span className="text-xs text-green-400">Saved ✓</span>}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
