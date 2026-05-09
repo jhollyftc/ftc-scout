@@ -786,7 +786,7 @@ export default function ScoutPage({
                         (allMatchScout[String(t.teamNumber)] ?? []).some(e => e.matchNumber === m.matchNumber)
                       ).length
                     : null
-                  const countLabel = scoutedInMatch !== null ? ` · ${scoutedInMatch}/6` : ''
+                  const countLabel = scoutedInMatch !== null ? ` · ${scoutedInMatch}/${m.teams.length}` : ''
                   return (
                     <option key={m.matchNumber} value={m.matchNumber}>
                       Q{m.matchNumber}{isNext ? ' — Next' : done ? ' ✓' : ''}{countLabel}
@@ -815,8 +815,8 @@ export default function ScoutPage({
             if (!match || !allMatchScout) return null
             const red = match.teams.filter(t => t.station.startsWith('Red'))
             const blue = match.teams.filter(t => t.station.startsWith('Blue'))
-            const allSix = [...red, ...blue]
-            const scoutedCount = allSix.filter(t =>
+            const allTeams = [...red, ...blue]
+            const scoutedCount = allTeams.filter(t =>
               (allMatchScout[String(t.teamNumber)] ?? []).some(e => e.matchNumber === selectedMatch)
             ).length
             return (
@@ -854,7 +854,7 @@ export default function ScoutPage({
                     </span>
                   )
                 })}
-                <span className="text-[10px] text-zinc-600 ml-1">{scoutedCount}/6</span>
+                <span className="text-[10px] text-zinc-600 ml-1">{scoutedCount}/{allTeams.length}</span>
               </div>
             )
           })()}
