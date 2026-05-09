@@ -4,7 +4,8 @@ import { useState } from 'react'
 import useSWR from 'swr'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Search, Calendar, MapPin, Trophy, Users } from 'lucide-react'
+import { Search, Calendar, MapPin, Trophy, Users, Shield, Lock } from 'lucide-react'
+import { useScoutMode } from '@/lib/scout-mode'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -104,12 +105,29 @@ export default function HomePage() {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<string | null>(null)
   const [teamInput, setTeamInput] = useState('')
+  const [scoutOpen, setScoutOpen] = useState(false)
+  const [pinInput, setPinInput] = useState('')
+  const [pinError, setPinError] = useState(false)
   const router = useRouter()
+  const { isScout, unlock, lock } = useScoutMode()
 
   function handleTeamSearch(e: React.FormEvent) {
     e.preventDefault()
     const num = teamInput.trim()
     if (num) router.push(`/teams/${season}/${num}`)
+  }
+
+  function handleScoutLogin(e: React.FormEvent) {
+    e.preventDefault()
+    const ok = unlock(pinInput)
+    if (ok) {
+      setScoutOpen(false)
+      setPinInput('')
+      setPinError(false)
+    } else {
+      setPinError(true)
+      setPinInput('')
+    }
   }
 
   const { data, isLoading, error } = useSWR<EventsResponse>(
@@ -179,6 +197,43 @@ export default function HomePage() {
               ))}
             </SelectContent>
           </Select>
+
+          {isScout ? (
+            <button
+              onClick={lock}
+              className="flex items-center gap-1.5 h-9 px-3 text-xs rounded-md border border-green-500/30 bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors shrink-0"
+            >
+              <Shield className="w-3.5 h-3.5" />
+              Scout Mode
+            </button>
+          ) : scoutOpen ? (
+            <form onSubmit={handleScoutLogin} className="flex items-center gap-1.5 shrink-0">
+              <input
+                type="password"
+                placeholder="PIN"
+                value={pinInput}
+                onChange={e => { setPinInput(e.target.value); setPinError(false) }}
+                autoFocus
+                className={`w-20 h-9 px-2 text-sm rounded-md border bg-zinc-800 text-zinc-200 placeholder-zinc-600 focus:outline-none ${
+                  pinError ? 'border-red-500' : 'border-zinc-700 focus:border-orange-500'
+                }`}
+              />
+              <button type="submit" className="h-9 px-3 text-xs rounded-md border border-zinc-700 bg-zinc-800 text-zinc-300 hover:border-zinc-500 transition-colors">
+                Unlock
+              </button>
+              <button type="button" onClick={() => { setScoutOpen(false); setPinError(false); setPinInput('') }} className="text-zinc-500 hover:text-zinc-300 transition-colors px-1">
+                ✕
+              </button>
+            </form>
+          ) : (
+            <button
+              onClick={() => setScoutOpen(true)}
+              className="flex items-center gap-1.5 h-9 px-3 text-xs rounded-md border border-zinc-700 bg-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 transition-colors shrink-0"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              Scout
+            </button>
+          )}
         </div>
       </header>
 

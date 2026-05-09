@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
 import { useCallback } from 'react'
+import { Shield } from 'lucide-react'
+import { useScoutMode } from '@/lib/scout-mode'
 
 const TABS = [
   { label: 'Schedule', suffix: '/schedule' },
@@ -21,6 +23,7 @@ export default function EventNav({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { isScout } = useScoutMode()
   const base = `/events/${season}/${eventCode}`
   const highlightTeam = searchParams.get('team') ?? ''
 
@@ -45,6 +48,11 @@ export default function EventNav({
 
   return (
     <div className="flex items-center gap-3 -mb-px">
+      {isScout && (
+        <span className="flex items-center gap-1 text-[10px] text-green-400 font-medium shrink-0">
+          <Shield className="w-3 h-3" /> Scout
+        </span>
+      )}
       <nav className="flex gap-1 overflow-x-auto">
         {TABS.map(tab => {
           const href = `${base}${tab.suffix}`

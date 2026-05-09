@@ -4,7 +4,8 @@ import { use, useRef, useState } from 'react'
 import useSWR from 'swr'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Camera, Upload, ExternalLink } from 'lucide-react'
+import { Camera, Upload, ExternalLink, X, ZoomIn } from 'lucide-react'
+import { useScoutMode } from '@/lib/scout-mode'
 import { calculateOPR } from '@/lib/opr'
 import type { TeamsResponse, HybridScheduleResponse } from '@/lib/ftc-client'
 
@@ -17,6 +18,7 @@ export default function TeamProfilePage({
 }) {
   const { season, eventCode, teamNumber } = use(params)
   const teamNum = Number(teamNumber)
+  const { isScout } = useScoutMode()
 
   const { data: teamData } = useSWR<TeamsResponse>(
     `/api/ftc/${season}/teams?teamNumber=${teamNumber}`,
@@ -88,6 +90,7 @@ export default function TeamProfilePage({
             eventCode={eventCode}
             teamNumber={teamNumber}
             onUploaded={() => mutatePhoto()}
+            isScout={isScout}
           />
           <a
             href={`https://ftcscout.org/teams/${teamNumber}`}
@@ -248,16 +251,19 @@ function RobotPhoto({
   eventCode,
   teamNumber,
   onUploaded,
+  isScout,
 }: {
   url: string | null
   season: string
   eventCode: string
   teamNumber: string
   onUploaded: () => void
+  isScout: boolean
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
 
   async function handleFile(file: File) {
     setUploading(true)
@@ -282,49 +288,77 @@ function RobotPhoto({
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div
-        className="relative w-full aspect-square rounded-lg border border-zinc-800 bg-zinc-900 overflow-hidden cursor-pointer group"
-        onClick={() => inputRef.current?.click()}
-      >
-        {url ? (
-          <>
-            <Image src={url} alt="Robot photo" fill className="object-cover" />
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <Camera className="w-8 h-8 text-white" />
+    <>
+      <div className="flex flex-col gap-2">
+        {/* Photo display */}
+        <div
+          className="relative w-full aspect-square rounded-lg border border-zinc-800 bg-zinc-900 overflow-hidden group"
+          onClick={() => url && setLightboxOpen(true)}
+          style={{ cursor: url ? 'zoom-in' : 'default' }}
+        >
+          {url ? (
+            <>
+              <Image src={url} alt="Robot photo" fill className="object-contain" />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <ZoomIn className="w-8 h-8 text-white" />
+              </div>
+            </>
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-zinc-600">
+              <Camera className="w-10 h-10" />
+              <span className="text-xs">No photo yet</span>
             </div>
+          )}
+        </div>
+
+        {/* Upload button — scout only */}
+        {isScout && (
+          <>
+            <button
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center justify-center gap-1.5 text-xs py-1.5 px-3 rounded-md border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 transition-colors disabled:opacity-50"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              {uploading ? 'Uploading…' : url ? 'Replace photo' : 'Add robot photo'}
+            </button>
+            {error && <p className="text-xs text-red-400 text-center">{error}</p>}
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={e => {
+                const file = e.target.files?.[0]
+                if (file) handleFile(file)
+                e.target.value = ''
+              }}
+            />
           </>
-        ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-zinc-600 group-hover:text-zinc-400 transition-colors">
-            <Camera className="w-10 h-10" />
-            <span className="text-xs">Add robot photo</span>
-          </div>
         )}
       </div>
 
-      <button
-        onClick={() => inputRef.current?.click()}
-        disabled={uploading}
-        className="flex items-center justify-center gap-1.5 text-xs py-1.5 px-3 rounded-md border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 transition-colors disabled:opacity-50"
-      >
-        <Upload className="w-3.5 h-3.5" />
-        {uploading ? 'Uploading…' : url ? 'Replace photo' : 'Upload photo'}
-      </button>
-
-      {error && <p className="text-xs text-red-400 text-center">{error}</p>}
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={e => {
-          const file = e.target.files?.[0]
-          if (file) handleFile(file)
-          e.target.value = ''
-        }}
-      />
-    </div>
+      {/* Lightbox */}
+      {lightboxOpen && url && (
+        <div
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white bg-zinc-800/80 rounded-full p-2 hover:bg-zinc-700 transition-colors"
+            onClick={() => setLightboxOpen(false)}
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div
+            className="relative w-full h-full max-w-3xl max-h-[90vh] m-8"
+            onClick={e => e.stopPropagation()}
+          >
+            <Image src={url} alt="Robot photo" fill className="object-contain" />
+          </div>
+        </div>
+      )}
+    </>
   )
 }
