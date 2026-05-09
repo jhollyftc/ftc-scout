@@ -121,6 +121,7 @@ export default function TeamProfilePage({
             teamNumber={teamNumber}
             onUploaded={() => mutatePhoto()}
             isScout={isScout}
+            getEventName={(code) => eventsData?.events.find(e => e.code === code)?.name ?? code}
           />
           <a
             href={`https://ftcscout.org/teams/${teamNumber}`}
@@ -694,6 +695,7 @@ function RobotPhoto({
   teamNumber,
   onUploaded,
   isScout,
+  getEventName,
 }: {
   url: string | null
   history: { url: string; eventCode: string; uploadedAt: string }[]
@@ -703,6 +705,7 @@ function RobotPhoto({
   teamNumber: string
   onUploaded: () => void
   isScout: boolean
+  getEventName: (code: string) => string
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -800,13 +803,12 @@ function RobotPhoto({
                 <button
                   key={h.eventCode}
                   onClick={() => setLightboxUrl(h.url)}
-                  className="shrink-0 flex flex-col items-center gap-0.5"
-                  title={h.eventCode}
+                  title={getEventName(h.eventCode)}
+                  className="shrink-0"
                 >
                   <div className="w-14 h-14 rounded border border-zinc-700 overflow-hidden relative hover:border-zinc-500 transition-colors">
-                    <Image src={h.url} alt={h.eventCode} fill className="object-cover" />
+                    <Image src={h.url} alt={getEventName(h.eventCode)} fill className="object-cover" />
                   </div>
-                  <span className="text-[9px] text-zinc-600 font-mono">{h.eventCode.slice(-6)}</span>
                 </button>
               ))}
             </div>
