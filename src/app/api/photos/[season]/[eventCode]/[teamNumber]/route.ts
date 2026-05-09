@@ -41,8 +41,8 @@ export async function GET(
     uploadedAt: b.uploadedAt.toISOString(),
   }))
 
-  // Prefer a photo taken at the current event; fall back to most recent in season
-  const primary = history.find(h => h.eventCode === eventCode) ?? history[0]
+  // Only show a photo if one was taken at this specific event
+  const primary = history.find(h => h.eventCode === eventCode) ?? null
 
-  return Response.json({ url: primary.url, history } satisfies PhotosResponse)
+  return Response.json({ url: primary?.url ?? null, history } satisfies PhotosResponse)
 }
