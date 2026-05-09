@@ -1,14 +1,7 @@
 import { list } from '@vercel/blob'
 import type { NextRequest } from 'next/server'
 
-interface PitScoutingData {
-  drivetrain: string
-  auto: string
-  teleop: string
-  endgame: string
-  consistency: number | null
-  notes: string
-}
+type PitScoutingData = Record<string, string | number | null>
 
 type Ctx = { params: Promise<{ season: string; eventCode: string }> }
 

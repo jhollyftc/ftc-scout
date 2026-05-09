@@ -4,12 +4,15 @@ import { use, useEffect, useRef, useState } from 'react'
 import useSWR from 'swr'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Camera, Upload, ExternalLink, X, ZoomIn, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Camera, Upload, ExternalLink, X, ZoomIn, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import { useScoutMode } from '@/lib/scout-mode'
 import { calculateOPR } from '@/lib/opr'
+import { getSeasonConfig } from '@/lib/season-config'
+import type { PitField } from '@/lib/season-config'
 import type { TeamsResponse, HybridScheduleResponse, EventsResponse } from '@/lib/ftc-client'
 import type { Note } from '@/app/api/notes/[season]/[eventCode]/[teamNumber]/route'
 import type { PitScoutingData } from '@/app/api/pit/[season]/[eventCode]/[teamNumber]/route'
+import type { PhotosResponse } from '@/app/api/photos/[season]/[eventCode]/[teamNumber]/route'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
@@ -33,7 +36,7 @@ export default function TeamProfilePage({
     { refreshInterval: 30_000 }
   )
 
-  const { data: photoData, mutate: mutatePhoto } = useSWR<{ url: string | null }>(
+  const { data: photoData, mutate: mutatePhoto } = useSWR<PhotosResponse>(
     `/api/photos/${season}/${eventCode}/${teamNumber}`,
     fetcher
   )
@@ -94,9 +97,7 @@ export default function TeamProfilePage({
       <div className="mb-6">
         <div className="flex items-baseline gap-3">
           <h2 className="text-2xl font-bold text-zinc-100">{teamNumber}</h2>
-          {team && (
-            <span className="text-zinc-400 text-lg">{team.nameShort}</span>
-          )}
+          {team && <span className="text-zinc-400 text-lg">{team.nameShort}</span>}
         </div>
         {team && (
           <p className="text-zinc-500 text-sm mt-1">
@@ -113,6 +114,8 @@ export default function TeamProfilePage({
         <div className="flex flex-col gap-3">
           <RobotPhoto
             url={photoData?.url ?? null}
+            history={photoData?.history ?? []}
+            currentEventCode={eventCode}
             season={season}
             eventCode={eventCode}
             teamNumber={teamNumber}
@@ -320,33 +323,7 @@ export default function TeamProfilePage({
   )
 }
 
-const EMPTY_PIT: PitScoutingData = {
-  drivetrain: '',
-  auto: '',
-  teleop: '',
-  endgame: '',
-  consistency: null,
-  notes: '',
-}
-
-const PIT_FIELDS = {
-  drivetrain: {
-    label: 'Drivetrain',
-    options: ['Mecanum', 'Tank', 'Swerve', 'Other'],
-  },
-  auto: {
-    label: 'Auto Capability',
-    options: ['None', 'Leaves zone', 'Scores (1 element)', 'Scores (2+ elements)', 'Full auto routine'],
-  },
-  teleop: {
-    label: 'Teleop Primary',
-    options: ['Ground intake', 'Human player intake', 'Both', 'Neither'],
-  },
-  endgame: {
-    label: 'Endgame',
-    options: ['No attempt', 'Park', 'Low hang', 'High hang'],
-  },
-}
+// ── Pit Scouting Form ────────────────────────────────────────────────────────
 
 function PitScoutingForm({
   season, eventCode, teamNumber, saved, onSave,
@@ -357,14 +334,21 @@ function PitScoutingForm({
   saved: PitScoutingData | null
   onSave: (data: PitScoutingData) => void
 }) {
+  const config = getSeasonConfig(season)
+  const { pitFields } = config
+
+  function emptyForm(): PitScoutingData {
+    return Object.fromEntries(pitFields.map(f => [f.key, f.type === 'rating' ? null : '']))
+  }
+
   const [expanded, setExpanded] = useState(false)
-  const [form, setForm] = useState<PitScoutingData>(saved ?? EMPTY_PIT)
+  const [form, setForm] = useState<PitScoutingData>(saved ?? emptyForm())
   const [saving, setSaving] = useState(false)
   const [savedOk, setSavedOk] = useState(false)
 
   useEffect(() => { if (saved) setForm(saved) }, [saved])
 
-  function set<K extends keyof PitScoutingData>(key: K, value: PitScoutingData[K]) {
+  function setField(key: string, value: string | number | null) {
     setForm(f => ({ ...f, [key]: value }))
     setSavedOk(false)
   }
@@ -385,26 +369,23 @@ function PitScoutingForm({
     }
   }
 
-  const hasSavedData = saved && (
-    saved.drivetrain || saved.auto || saved.teleop || saved.endgame || saved.consistency || saved.notes
-  )
+  const hasSavedData = saved && Object.values(saved).some(v => v !== null && v !== '')
 
   const selectClass = 'w-full h-8 px-2 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 focus:outline-none focus:border-sky-500 appearance-none'
+  const textareaClass = 'w-full px-2.5 py-2 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-sky-500 resize-none'
+  const numberClass = 'w-full h-8 px-2.5 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 focus:outline-none focus:border-sky-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
 
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Pit Scouting</h3>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-zinc-700 italic">BioBuzz questions coming when season releases</span>
-          <button
-            onClick={() => setExpanded(v => !v)}
-            className="text-zinc-600 hover:text-zinc-300 transition-colors"
-            aria-label={expanded ? 'Collapse' : 'Expand'}
-          >
-            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-        </div>
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="text-zinc-600 hover:text-zinc-300 transition-colors"
+          aria-label={expanded ? 'Collapse' : 'Expand'}
+        >
+          {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
       </div>
 
       {/* Collapsed summary */}
@@ -415,26 +396,29 @@ function PitScoutingForm({
         >
           {hasSavedData ? (
             <div className="flex flex-wrap gap-1.5 items-center">
-              {form.drivetrain && (
-                <span className="text-[10px] bg-zinc-800 text-zinc-300 rounded px-1.5 py-0.5">{form.drivetrain}</span>
-              )}
-              {form.auto && (
-                <span className="text-[10px] bg-zinc-800 text-zinc-300 rounded px-1.5 py-0.5">Auto: {form.auto}</span>
-              )}
-              {form.teleop && (
-                <span className="text-[10px] bg-zinc-800 text-zinc-300 rounded px-1.5 py-0.5">Teleop: {form.teleop}</span>
-              )}
-              {form.endgame && (
-                <span className="text-[10px] bg-zinc-800 text-zinc-300 rounded px-1.5 py-0.5">{form.endgame}</span>
-              )}
-              {form.consistency && (
-                <span className="text-[10px] bg-sky-500/10 text-sky-300 rounded px-1.5 py-0.5">
-                  Consistency: {form.consistency}/5
-                </span>
-              )}
-              {form.notes && (
-                <span className="text-[10px] text-zinc-500 truncate max-w-[200px]">{form.notes}</span>
-              )}
+              {pitFields.map(field => {
+                const value = form[field.key]
+                if (value === null || value === '') return null
+                const display = field.key === 'notes'
+                  ? String(value).slice(0, 50) + (String(value).length > 50 ? '…' : '')
+                  : field.type === 'rating'
+                  ? `${field.label}: ${value}/5`
+                  : String(value)
+                return (
+                  <span
+                    key={field.key}
+                    className={`text-[10px] rounded px-1.5 py-0.5 ${
+                      field.key === 'notes'
+                        ? 'text-zinc-500'
+                        : field.type === 'rating'
+                        ? 'bg-sky-500/10 text-sky-300'
+                        : 'bg-zinc-800 text-zinc-300'
+                    }`}
+                  >
+                    {display}
+                  </span>
+                )
+              })}
             </div>
           ) : (
             <span className="text-xs text-zinc-600 italic">Not yet scouted — click to fill in</span>
@@ -445,56 +429,18 @@ function PitScoutingForm({
       {/* Expanded form */}
       {expanded && (
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 flex flex-col gap-3">
-          {/* Select fields */}
-          {(Object.keys(PIT_FIELDS) as (keyof typeof PIT_FIELDS)[]).map(key => (
-            <div key={key}>
-              <label className="block text-[10px] text-zinc-500 mb-1">{PIT_FIELDS[key].label}</label>
-              <select
-                value={form[key]}
-                onChange={e => set(key, e.target.value)}
-                className={selectClass}
-              >
-                <option value="">— select —</option>
-                {PIT_FIELDS[key].options.map(o => (
-                  <option key={o} value={o}>{o}</option>
-                ))}
-              </select>
-            </div>
+          {pitFields.map(field => (
+            <PitFormField
+              key={field.key}
+              field={field}
+              value={form[field.key] ?? (field.type === 'rating' ? null : '')}
+              onChange={v => setField(field.key, v)}
+              selectClass={selectClass}
+              textareaClass={textareaClass}
+              numberClass={numberClass}
+            />
           ))}
 
-          {/* Consistency rating */}
-          <div>
-            <label className="block text-[10px] text-zinc-500 mb-1">Consistency (1–5)</label>
-            <div className="flex gap-1.5">
-              {[1, 2, 3, 4, 5].map(n => (
-                <button
-                  key={n}
-                  onClick={() => set('consistency', form.consistency === n ? null : n)}
-                  className={`w-8 h-8 rounded-md text-xs font-semibold border transition-colors ${
-                    form.consistency === n
-                      ? 'bg-sky-500/20 border-sky-500/50 text-sky-300'
-                      : 'border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300'
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Overall notes */}
-          <div>
-            <label className="block text-[10px] text-zinc-500 mb-1">Overall Notes</label>
-            <textarea
-              value={form.notes}
-              onChange={e => set('notes', e.target.value)}
-              placeholder="Observations, strengths, weaknesses…"
-              rows={3}
-              className="w-full px-2.5 py-2 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-sky-500 resize-none"
-            />
-          </div>
-
-          {/* Save / Cancel */}
           <div className="flex items-center gap-3">
             <button
               onClick={handleSave}
@@ -516,6 +462,69 @@ function PitScoutingForm({
     </div>
   )
 }
+
+function PitFormField({
+  field, value, onChange, selectClass, textareaClass, numberClass,
+}: {
+  field: PitField
+  value: string | number | null
+  onChange: (v: string | number | null) => void
+  selectClass: string
+  textareaClass: string
+  numberClass: string
+}) {
+  return (
+    <div>
+      <label className="block text-[10px] text-zinc-500 mb-1">{field.label}</label>
+
+      {field.type === 'select' && (
+        <select value={String(value ?? '')} onChange={e => onChange(e.target.value)} className={selectClass}>
+          <option value="">— select —</option>
+          {field.options?.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+      )}
+
+      {field.type === 'text' && (
+        <textarea
+          value={String(value ?? '')}
+          onChange={e => onChange(e.target.value)}
+          placeholder={field.placeholder}
+          rows={3}
+          className={textareaClass}
+        />
+      )}
+
+      {field.type === 'number' && (
+        <input
+          type="number"
+          value={value === null || value === '' ? '' : String(value)}
+          onChange={e => onChange(e.target.value === '' ? null : Number(e.target.value))}
+          className={numberClass}
+        />
+      )}
+
+      {field.type === 'rating' && (
+        <div className="flex gap-1.5">
+          {[1, 2, 3, 4, 5].map(n => (
+            <button
+              key={n}
+              onClick={() => onChange(value === n ? null : n)}
+              className={`w-8 h-8 rounded-md text-xs font-semibold border transition-colors ${
+                value === n
+                  ? 'bg-sky-500/20 border-sky-500/50 text-sky-300'
+                  : 'border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Scout Notes ──────────────────────────────────────────────────────────────
 
 function ScoutNotes({
   season, eventCode, teamNumber, notes, allSeasonNotes, showAllNotes, onToggleAll, eventsData, onMutate,
@@ -540,7 +549,7 @@ function ScoutNotes({
 
   async function saveNotes(updated: Note[]) {
     setSaving(true)
-    onMutate(updated) // optimistic update — no refetch needed
+    onMutate(updated)
     try {
       await fetch(`/api/notes/${season}/${eventCode}/${teamNumber}`, {
         method: 'POST',
@@ -572,17 +581,11 @@ function ScoutNotes({
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Scout Notes</h3>
         <label className="flex items-center gap-1.5 text-xs text-zinc-500 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={showAllNotes}
-            onChange={onToggleAll}
-            className="accent-sky-500"
-          />
+          <input type="checkbox" checked={showAllNotes} onChange={onToggleAll} className="accent-sky-500" />
           Show all season
         </label>
       </div>
 
-      {/* Current event notes */}
       <div className="flex flex-col gap-1.5 mb-2">
         {notes.length === 0 && (
           <p className="text-xs text-zinc-700 italic">No notes for this event yet.</p>
@@ -598,18 +601,8 @@ function ScoutNotes({
             {confirmDeleteId === n.id ? (
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-[10px] text-zinc-400">Delete?</span>
-                <button
-                  onClick={() => confirmDelete(n.id)}
-                  className="text-[10px] font-semibold text-red-400 hover:text-red-300 transition-colors"
-                >
-                  Yes
-                </button>
-                <button
-                  onClick={() => setConfirmDeleteId(null)}
-                  className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
-                >
-                  No
-                </button>
+                <button onClick={() => confirmDelete(n.id)} className="text-[10px] font-semibold text-red-400 hover:text-red-300 transition-colors">Yes</button>
+                <button onClick={() => setConfirmDeleteId(null)} className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors">No</button>
               </div>
             ) : (
               <button
@@ -624,7 +617,6 @@ function ScoutNotes({
         ))}
       </div>
 
-      {/* Add note */}
       <div className="flex gap-2">
         <input
           value={input}
@@ -642,7 +634,6 @@ function ScoutNotes({
         </button>
       </div>
 
-      {/* Other events' notes (read-only) */}
       {showAllNotes && otherEventNotes.length > 0 && (
         <div className="mt-4 flex flex-col gap-3">
           {otherEventNotes.map(group => (
@@ -672,19 +663,21 @@ function ScoutNotes({
   )
 }
 
+// ── Shared sub-components ────────────────────────────────────────────────────
+
 function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2">
       <p className="text-xs text-zinc-500 mb-0.5">{label}</p>
-      <p className={`text-lg font-bold font-mono ${accent ? 'text-sky-300' : 'text-zinc-200'}`}>
-        {value}
-      </p>
+      <p className={`text-lg font-bold font-mono ${accent ? 'text-sky-300' : 'text-zinc-200'}`}>{value}</p>
     </div>
   )
 }
 
 function RobotPhoto({
   url,
+  history,
+  currentEventCode,
   season,
   eventCode,
   teamNumber,
@@ -692,6 +685,8 @@ function RobotPhoto({
   isScout,
 }: {
   url: string | null
+  history: { url: string; eventCode: string; uploadedAt: string }[]
+  currentEventCode: string
   season: string
   eventCode: string
   teamNumber: string
@@ -701,7 +696,7 @@ function RobotPhoto({
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
 
   async function handleFile(file: File) {
     setUploading(true)
@@ -725,13 +720,16 @@ function RobotPhoto({
     }
   }
 
+  // Photos from other events in this season (for history strip)
+  const pastPhotos = history.filter(h => h.eventCode !== currentEventCode)
+
   return (
     <>
       <div className="flex flex-col gap-2">
-        {/* Photo display */}
+        {/* Main photo */}
         <div
           className="relative w-full aspect-square rounded-lg border border-zinc-800 bg-zinc-900 overflow-hidden group"
-          onClick={() => url && setLightboxOpen(true)}
+          onClick={() => url && setLightboxUrl(url)}
           style={{ cursor: url ? 'zoom-in' : 'default' }}
         >
           {url ? (
@@ -775,17 +773,39 @@ function RobotPhoto({
             />
           </>
         )}
+
+        {/* Photo history strip — previous events this season */}
+        {pastPhotos.length > 0 && (
+          <div>
+            <p className="text-[10px] text-zinc-600 mb-1">Earlier this season</p>
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
+              {pastPhotos.map(h => (
+                <button
+                  key={h.eventCode}
+                  onClick={() => setLightboxUrl(h.url)}
+                  className="shrink-0 flex flex-col items-center gap-0.5"
+                  title={h.eventCode}
+                >
+                  <div className="w-14 h-14 rounded border border-zinc-700 overflow-hidden relative hover:border-zinc-500 transition-colors">
+                    <Image src={h.url} alt={h.eventCode} fill className="object-cover" />
+                  </div>
+                  <span className="text-[9px] text-zinc-600 font-mono">{h.eventCode.slice(-6)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Lightbox */}
-      {lightboxOpen && url && (
+      {lightboxUrl && (
         <div
           className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
-          onClick={() => setLightboxOpen(false)}
+          onClick={() => setLightboxUrl(null)}
         >
           <button
             className="absolute top-4 right-4 text-white bg-zinc-800/80 rounded-full p-2 hover:bg-zinc-700 transition-colors"
-            onClick={() => setLightboxOpen(false)}
+            onClick={() => setLightboxUrl(null)}
           >
             <X className="w-5 h-5" />
           </button>
@@ -793,7 +813,7 @@ function RobotPhoto({
             className="relative w-full h-full max-w-3xl max-h-[90vh] m-8"
             onClick={e => e.stopPropagation()}
           >
-            <Image src={url} alt="Robot photo" fill className="object-contain" />
+            <Image src={lightboxUrl} alt="Robot photo" fill className="object-contain" />
           </div>
         </div>
       )}

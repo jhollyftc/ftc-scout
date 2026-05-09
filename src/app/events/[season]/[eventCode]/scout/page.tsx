@@ -6,6 +6,7 @@ import useSWR from 'swr'
 import { ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react'
 import { useScoutMode } from '@/lib/scout-mode'
 import { calculateOPR, type TeamOPR } from '@/lib/opr'
+import { getSeasonConfig } from '@/lib/season-config'
 import type { HybridScheduleResponse, HybridMatch, RankingsResponse } from '@/lib/ftc-client'
 import type { MatchScoutEntry } from '@/app/api/match-scout/[season]/[eventCode]/[matchNumber]/[teamNumber]/route'
 
@@ -18,8 +19,6 @@ const EMPTY_ENTRY: MatchScoutEntry = {
   notes: '',
   scoutedAt: '',
 }
-
-const ENDGAME_OPTIONS = ['None', 'Park', 'Low Hang', 'High Hang']
 
 function RatingButtons({ value, onChange }: { value: number | null; onChange: (v: number | null) => void }) {
   return (
@@ -42,13 +41,14 @@ function RatingButtons({ value, onChange }: { value: number | null; onChange: (v
 }
 
 function TeamScoutCard({
-  team, season, eventCode, matchNumber, color,
+  team, season, eventCode, matchNumber, color, endgameOptions,
 }: {
   team: HybridMatch['teams'][number]
   season: string
   eventCode: string
   matchNumber: number
   color: 'red' | 'blue'
+  endgameOptions: string[]
 }) {
   const { data: saved, mutate } = useSWR<MatchScoutEntry | null>(
     `/api/match-scout/${season}/${eventCode}/${matchNumber}/${team.teamNumber}`,
@@ -113,7 +113,7 @@ function TeamScoutCard({
           className="w-full h-7 px-2 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-200 focus:outline-none focus:border-sky-500 appearance-none"
         >
           <option value="">— select —</option>
-          {ENDGAME_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+          {endgameOptions.map(o => <option key={o} value={o}>{o}</option>)}
         </select>
       </div>
       <div>
@@ -631,6 +631,7 @@ export default function ScoutPage({
     { refreshInterval: 30_000 }
   )
 
+  const config = getSeasonConfig(season)
   const schedule = data?.schedule ?? []
   const nextMatchNumber = schedule.find(m => m.scoreRedFinal === null)?.matchNumber ?? schedule[0]?.matchNumber ?? 1
   const [selectedMatch, setSelectedMatch] = useState<number | null>(null)
@@ -763,6 +764,7 @@ export default function ScoutPage({
                           eventCode={eventCode}
                           matchNumber={match.matchNumber}
                           color="red"
+                          endgameOptions={config.endgameOptions}
                         />
                       ))}
                     </div>
@@ -776,6 +778,7 @@ export default function ScoutPage({
                           eventCode={eventCode}
                           matchNumber={match.matchNumber}
                           color="blue"
+                          endgameOptions={config.endgameOptions}
                         />
                       ))}
                     </div>
