@@ -352,15 +352,13 @@ function ScoutBoard({
   season,
   eventCode,
   schedule,
+  allMatchScout,
 }: {
   season: string
   eventCode: string
   schedule: HybridMatch[]
+  allMatchScout: Record<string, MatchScoutEntryWithMatch[]> | undefined
 }) {
-  const { data: allMatchScout } = useSWR<Record<string, MatchScoutEntryWithMatch[]>>(
-    `/api/match-scout/${season}/${eventCode}`,
-    fetcher
-  )
   const { data: rankData } = useSWR<RankingsResponse>(
     `/api/ftc/${season}/rankings/${eventCode}`,
     fetcher,
@@ -465,6 +463,25 @@ function ScoutBoard({
     })
   }, [rows, sortKey, sortDir])
 
+  const calibration = useMemo(() => {
+    const withBoth = rows.filter(r => r.nopr !== null && r.avgRating !== null)
+    if (withBoth.length < 4) return {} as Record<number, string | null>
+    const threshold = Math.max(3, Math.round(withBoth.length * 0.2))
+    const byNopr = [...withBoth].sort((a, b) => (b.nopr ?? 0) - (a.nopr ?? 0))
+    const byScout = [...withBoth].sort((a, b) => (b.avgRating ?? 0) - (a.avgRating ?? 0))
+    const noprRank = new Map(byNopr.map((r, i) => [r.teamNumber, i + 1]))
+    const scoutRank = new Map(byScout.map((r, i) => [r.teamNumber, i + 1]))
+    const result: Record<number, string | null> = {}
+    for (const row of withBoth) {
+      const nr = noprRank.get(row.teamNumber) ?? 0
+      const sr = scoutRank.get(row.teamNumber) ?? 0
+      result[row.teamNumber] = Math.abs(nr - sr) >= threshold
+        ? `Scout avg ranks #${sr}, nOPR ranks #${nr} — consider re-scouting`
+        : null
+    }
+    return result
+  }, [rows])
+
   const compareRowA = compareTeams[0]
     ? rows.find(r => String(r.teamNumber) === compareTeams[0]) ?? null
     : null
@@ -567,7 +584,15 @@ function ScoutBoard({
                       {row.topEndgame || <span className="text-zinc-700">—</span>}
                     </td>
                     <td className="py-2.5 px-3 text-xs text-right">
-                      <Rating value={row.avgRating} />
+                      <span className="inline-flex items-center justify-end gap-1">
+                        <Rating value={row.avgRating} />
+                        {calibration[row.teamNumber] && (
+                          <span
+                            title={calibration[row.teamNumber]!}
+                            className="text-[9px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded px-0.5 cursor-help leading-none"
+                          >~</span>
+                        )}
+                      </span>
                     </td>
                     <td className="py-2.5 px-3 text-xs text-right font-mono text-zinc-400">
                       {row.nopr !== null ? row.nopr.toFixed(1) : <span className="text-zinc-700">—</span>}
@@ -675,6 +700,12 @@ export default function ScoutPage({
     { refreshInterval: 30_000 }
   )
 
+  const { data: allMatchScout } = useSWR<Record<string, MatchScoutEntryWithMatch[]>>(
+    `/api/match-scout/${season}/${eventCode}`,
+    fetcher,
+    { refreshInterval: 30_000 }
+  )
+
   const config = getSeasonConfig(season)
   const schedule = data?.schedule ?? []
   const nextMatchNumber = schedule.find(m => m.scoreRedFinal === null)?.matchNumber ?? schedule[0]?.matchNumber ?? 1
@@ -724,11 +755,11 @@ export default function ScoutPage({
       </div>
 
       {view === 'board' ? (
-        <ScoutBoard season={season} eventCode={eventCode} schedule={schedule} />
+        <ScoutBoard season={season} eventCode={eventCode} schedule={schedule} allMatchScout={allMatchScout} />
       ) : (
         <>
           {/* Match picker */}
-          <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center gap-3 mb-2">
             <button
               onClick={() => {
                 const currentIdx = schedule.findIndex(m => m.matchNumber === selectedMatch)
@@ -750,9 +781,15 @@ export default function ScoutPage({
                 {schedule.map(m => {
                   const done = m.scoreRedFinal !== null
                   const isNext = m.matchNumber === nextMatchNumber && !done
+                  const scoutedInMatch = allMatchScout
+                    ? m.teams.filter(t =>
+                        (allMatchScout[String(t.teamNumber)] ?? []).some(e => e.matchNumber === m.matchNumber)
+                      ).length
+                    : null
+                  const countLabel = scoutedInMatch !== null ? ` · ${scoutedInMatch}/6` : ''
                   return (
                     <option key={m.matchNumber} value={m.matchNumber}>
-                      Q{m.matchNumber}{isNext ? ' — Next' : done ? ' ✓' : ''}
+                      Q{m.matchNumber}{isNext ? ' — Next' : done ? ' ✓' : ''}{countLabel}
                     </option>
                   )
                 })}
@@ -771,6 +808,56 @@ export default function ScoutPage({
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
+
+          {/* Completeness strip */}
+          {(() => {
+            const match = schedule.find(m => m.matchNumber === selectedMatch)
+            if (!match || !allMatchScout) return null
+            const red = match.teams.filter(t => t.station.startsWith('Red'))
+            const blue = match.teams.filter(t => t.station.startsWith('Blue'))
+            const allSix = [...red, ...blue]
+            const scoutedCount = allSix.filter(t =>
+              (allMatchScout[String(t.teamNumber)] ?? []).some(e => e.matchNumber === selectedMatch)
+            ).length
+            return (
+              <div className="flex items-center gap-1.5 mb-4">
+                {red.map(t => {
+                  const scouted = (allMatchScout[String(t.teamNumber)] ?? []).some(e => e.matchNumber === selectedMatch)
+                  return (
+                    <span
+                      key={t.teamNumber}
+                      title={`${t.teamNumber} · ${t.teamName}${scouted ? ' — scouted ✓' : ' — not yet scouted'}`}
+                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded border transition-colors ${
+                        scouted
+                          ? 'bg-red-500/20 border-red-500/30 text-red-300'
+                          : 'bg-zinc-900 border-zinc-700 text-zinc-600'
+                      }`}
+                    >
+                      {t.teamNumber}
+                    </span>
+                  )
+                })}
+                <span className="text-zinc-700 text-xs mx-0.5">·</span>
+                {blue.map(t => {
+                  const scouted = (allMatchScout[String(t.teamNumber)] ?? []).some(e => e.matchNumber === selectedMatch)
+                  return (
+                    <span
+                      key={t.teamNumber}
+                      title={`${t.teamNumber} · ${t.teamName}${scouted ? ' — scouted ✓' : ' — not yet scouted'}`}
+                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded border transition-colors ${
+                        scouted
+                          ? 'bg-blue-500/20 border-blue-500/30 text-blue-300'
+                          : 'bg-zinc-900 border-zinc-700 text-zinc-600'
+                      }`}
+                    >
+                      {t.teamNumber}
+                    </span>
+                  )
+                })}
+                <span className="text-[10px] text-zinc-600 ml-1">{scoutedCount}/6</span>
+              </div>
+            )
+          })()}
 
           {/* Match status */}
           {(() => {
