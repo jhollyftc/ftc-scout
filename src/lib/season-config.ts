@@ -55,7 +55,7 @@ export const SEASON_CONFIGS: Record<string, SeasonConfig> = {
 
   '2025': {
     name: 'Into The Deep',
-    endgameOptions: ['None', 'Park', 'Low Hang', 'High Hang'],
+    endgameOptions: ['None', 'Partial Park', 'Full Park', 'Double Park'],
     pitFields: [
       {
         key: 'drivetrain',
@@ -71,7 +71,7 @@ export const SEASON_CONFIGS: Record<string, SeasonConfig> = {
           'None',
           'Near Auto Only',
           'Far Auto Only',
-          'Full auto routine',
+          'Far & Near Autos',
         ],
       },
       {
@@ -84,7 +84,7 @@ export const SEASON_CONFIGS: Record<string, SeasonConfig> = {
         key: 'endgame',
         label: 'Endgame',
         type: 'select',
-        options: ['No attempt', 'Partial Park', 'Full Park', 'Full Park'],
+        options: ['No attempt', 'Partial Park', 'Full Park', 'Double Park'],
       },
       {
         key: 'consistency',
