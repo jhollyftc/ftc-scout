@@ -13,6 +13,10 @@ const TABS = [
   { label: 'Predict', suffix: '/predict' },
 ]
 
+const SCOUT_TABS = [
+  { label: 'Scout', suffix: '/scout' },
+]
+
 export default function EventNav({
   season,
   eventCode,
@@ -54,16 +58,21 @@ export default function EventNav({
         </span>
       )}
       <nav className="flex gap-1 overflow-x-auto">
-        {TABS.map(tab => {
+        {[...TABS, ...(isScout ? SCOUT_TABS : [])].map(tab => {
           const href = `${base}${tab.suffix}`
           const active = pathname === href || pathname.startsWith(href + '/')
+          const isScoutTab = tab.suffix === '/scout'
           return (
             <Link
               key={tab.label}
               href={tabHref(tab.suffix)}
               className={`px-3 py-1.5 text-sm whitespace-nowrap border-b-2 transition-colors ${
                 active
-                  ? 'text-orange-400 border-orange-400 font-medium'
+                  ? isScoutTab
+                    ? 'text-green-400 border-green-400 font-medium'
+                    : 'text-orange-400 border-orange-400 font-medium'
+                  : isScoutTab
+                  ? 'text-green-600 border-transparent hover:text-green-400'
                   : 'text-zinc-500 border-transparent hover:text-zinc-200'
               }`}
             >
