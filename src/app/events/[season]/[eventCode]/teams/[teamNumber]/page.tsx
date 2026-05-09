@@ -144,6 +144,21 @@ export default function TeamProfilePage({
             </div>
           )}
 
+          {/* Scout notes */}
+          {isScout && (
+            <ScoutNotes
+              season={season}
+              eventCode={eventCode}
+              teamNumber={teamNumber}
+              notes={eventNotes ?? []}
+              allSeasonNotes={allSeasonNotes ?? []}
+              showAllNotes={showAllNotes}
+              onToggleAll={() => setShowAllNotes(v => !v)}
+              eventsData={eventsData}
+              onMutate={mutateNotes}
+            />
+          )}
+
           {/* Match history */}
           <div>
             <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">
@@ -248,21 +263,6 @@ export default function TeamProfilePage({
               </div>
             )}
           </div>
-
-          {/* Scout notes */}
-          {isScout && (
-            <ScoutNotes
-              season={season}
-              eventCode={eventCode}
-              teamNumber={teamNumber}
-              notes={eventNotes ?? []}
-              allSeasonNotes={allSeasonNotes ?? []}
-              showAllNotes={showAllNotes}
-              onToggleAll={() => setShowAllNotes(v => !v)}
-              eventsData={eventsData}
-              onMutate={mutateNotes}
-            />
-          )}
 
           {/* Season events */}
           {eventsData?.events && eventsData.events.length > 0 && (
