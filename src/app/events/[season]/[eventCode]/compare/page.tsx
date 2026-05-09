@@ -80,7 +80,8 @@ export default function ComparePage({
   )
   const { data: allMatchScout } = useSWR<Record<string, MatchScoutEntryWithMatch[]>>(
     isScout ? `/api/match-scout/${season}/${eventCode}` : null,
-    fetcher
+    fetcher,
+    { revalidateOnFocus: false, revalidateOnReconnect: false }
   )
 
   const schedule = schedData?.schedule ?? []

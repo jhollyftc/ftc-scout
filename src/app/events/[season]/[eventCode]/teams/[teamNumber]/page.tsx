@@ -37,7 +37,8 @@ export default function TeamProfilePage({
 
   const { data: photoData, mutate: mutatePhoto } = useSWR<PhotosResponse>(
     `/api/photos/${season}/${eventCode}/${teamNumber}`,
-    fetcher
+    fetcher,
+    { revalidateOnFocus: false, revalidateOnReconnect: false }
   )
 
   const { data: eventsData } = useSWR<EventsResponse>(
@@ -48,7 +49,7 @@ export default function TeamProfilePage({
   const { data: pitData, mutate: mutatePit } = useSWR<PitScoutingData | null>(
     isScout ? `/api/pit/${season}/${eventCode}/${teamNumber}` : null,
     fetcher,
-    { fallbackData: null }
+    { fallbackData: null, revalidateOnFocus: false, revalidateOnReconnect: false }
   )
 
   const team = teamData?.teams[0]

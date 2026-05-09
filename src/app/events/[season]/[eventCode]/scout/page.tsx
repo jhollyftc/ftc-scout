@@ -56,7 +56,7 @@ function TeamScoutCard({
   const { data: saved, mutate } = useSWR<MatchScoutEntry | null>(
     `/api/match-scout/${season}/${eventCode}/${matchNumber}/${team.teamNumber}`,
     fetcher,
-    { fallbackData: null }
+    { fallbackData: null, revalidateOnFocus: false, revalidateOnReconnect: false }
   )
 
   const [form, setForm] = useState<MatchScoutEntry>(saved ?? EMPTY_ENTRY)
@@ -999,7 +999,7 @@ export default function ScoutPage({
   const { data: allMatchScout } = useSWR<Record<string, MatchScoutEntryWithMatch[]>>(
     `/api/match-scout/${season}/${eventCode}`,
     fetcher,
-    { refreshInterval: 30_000 }
+    { revalidateOnFocus: false, revalidateOnReconnect: false }
   )
 
   const config = getSeasonConfig(season)
