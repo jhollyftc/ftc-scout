@@ -8,25 +8,16 @@ import { Shield } from 'lucide-react'
 import { useScoutMode } from '@/lib/scout-mode'
 import { calculateOPR } from '@/lib/opr'
 import type { HybridScheduleResponse, RankingsResponse } from '@/lib/ftc-client'
+import type { MatchScoutEntryWithMatch } from '@/app/api/match-scout/[season]/[eventCode]/route'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
-
-interface MatchScoutEntry {
-  autoRating: number | null
-  teleopRating: number | null
-  endgame: string
-  notes: string
-  scoutedAt: string
-}
-
-interface EventNote { id: string; text: string; timestamp: string }
 
 function avg(vals: (number | null)[]): number | null {
   const nums = vals.filter((v): v is number => v !== null)
   return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null
 }
 
-function topEndgame(entries: MatchScoutEntry[]): string | null {
+function topEndgame(entries: MatchScoutEntryWithMatch[]): string | null {
   const counts: Record<string, number> = {}
   for (const e of entries) {
     if (e.endgame && e.endgame !== 'None') counts[e.endgame] = (counts[e.endgame] ?? 0) + 1
@@ -34,9 +25,10 @@ function topEndgame(entries: MatchScoutEntry[]): string | null {
   return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
 }
 
-function latestNote(notes: EventNote[]): string | null {
-  return [...notes]
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]?.text ?? null
+function latestNote(entries: MatchScoutEntryWithMatch[]): string | null {
+  return [...entries]
+    .filter(e => e.notes?.trim())
+    .sort((a, b) => new Date(b.scoutedAt).getTime() - new Date(a.scoutedAt).getTime())[0]?.notes ?? null
 }
 
 type Winner = 'a' | 'b' | null
@@ -86,12 +78,8 @@ export default function ComparePage({
     fetcher,
     { refreshInterval: 30_000 }
   )
-  const { data: allMatchScout } = useSWR<Record<string, MatchScoutEntry[]>>(
+  const { data: allMatchScout } = useSWR<Record<string, MatchScoutEntryWithMatch[]>>(
     isScout ? `/api/match-scout/${season}/${eventCode}` : null,
-    fetcher
-  )
-  const { data: allNotes } = useSWR<Record<string, EventNote[]>>(
-    isScout ? `/api/notes/${season}/${eventCode}` : null,
     fetcher
   )
 
@@ -132,8 +120,8 @@ export default function ComparePage({
   const avgTeleopB = avg(entriesB.map(e => e.teleopRating))
   const avgRatingA = avg([avgAutoA, avgTeleopA])
   const avgRatingB = avg([avgAutoB, avgTeleopB])
-  const noteA = latestNote(allNotes?.[teamA] ?? [])
-  const noteB = latestNote(allNotes?.[teamB] ?? [])
+  const noteA = latestNote(entriesA)
+  const noteB = latestNote(entriesB)
 
   const rows: CompareRow[] = [
     {

@@ -4,13 +4,12 @@ import { use, useEffect, useRef, useState } from 'react'
 import useSWR from 'swr'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Camera, Upload, ExternalLink, X, ZoomIn, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import { Camera, Upload, ExternalLink, X, ZoomIn, ChevronDown, ChevronUp } from 'lucide-react'
 import { useScoutMode } from '@/lib/scout-mode'
 import { calculateOPR } from '@/lib/opr'
 import { getSeasonConfig } from '@/lib/season-config'
 import type { PitField } from '@/lib/season-config'
 import type { TeamsResponse, HybridScheduleResponse, EventsResponse } from '@/lib/ftc-client'
-import type { Note } from '@/app/api/notes/[season]/[eventCode]/[teamNumber]/route'
 import type { PitScoutingData } from '@/app/api/pit/[season]/[eventCode]/[teamNumber]/route'
 import type { PhotosResponse } from '@/app/api/photos/[season]/[eventCode]/[teamNumber]/route'
 
@@ -46,24 +45,10 @@ export default function TeamProfilePage({
     fetcher
   )
 
-  const [showAllNotes, setShowAllNotes] = useState(false)
-
   const { data: pitData, mutate: mutatePit } = useSWR<PitScoutingData | null>(
     isScout ? `/api/pit/${season}/${eventCode}/${teamNumber}` : null,
     fetcher,
     { fallbackData: null }
-  )
-
-  const { data: eventNotes, mutate: mutateNotes } = useSWR<Note[]>(
-    isScout ? `/api/notes/${season}/${eventCode}/${teamNumber}` : null,
-    fetcher,
-    { fallbackData: [] }
-  )
-
-  const { data: allSeasonNotes } = useSWR<{ eventCode: string; notes: Note[] }[]>(
-    isScout && showAllNotes ? `/api/notes/season/${season}/${teamNumber}` : null,
-    fetcher,
-    { fallbackData: [] }
   )
 
   const team = teamData?.teams[0]
@@ -163,21 +148,6 @@ export default function TeamProfilePage({
               teamNumber={teamNumber}
               saved={pitData ?? null}
               onSave={(data) => mutatePit(data, { revalidate: false })}
-            />
-          )}
-
-          {/* Scout notes */}
-          {isScout && (
-            <ScoutNotes
-              season={season}
-              eventCode={eventCode}
-              teamNumber={teamNumber}
-              notes={eventNotes ?? []}
-              allSeasonNotes={allSeasonNotes ?? []}
-              showAllNotes={showAllNotes}
-              onToggleAll={() => setShowAllNotes(v => !v)}
-              eventsData={eventsData}
-              onMutate={(data?: Note[]) => mutateNotes(data, { revalidate: false })}
             />
           )}
 
@@ -531,145 +501,6 @@ function PitFormField({
             </button>
           ))}
         </div>
-      )}
-    </div>
-  )
-}
-
-// ── Scout Notes ──────────────────────────────────────────────────────────────
-
-function ScoutNotes({
-  season, eventCode, teamNumber, notes, allSeasonNotes, showAllNotes, onToggleAll, eventsData, onMutate,
-}: {
-  season: string
-  eventCode: string
-  teamNumber: string
-  notes: Note[]
-  allSeasonNotes: { eventCode: string; notes: Note[] }[]
-  showAllNotes: boolean
-  onToggleAll: () => void
-  eventsData: EventsResponse | undefined
-  onMutate: (data?: Note[]) => void
-}) {
-  const [input, setInput] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
-
-  function eventName(code: string) {
-    return eventsData?.events.find(e => e.code === code)?.name ?? code
-  }
-
-  async function saveNotes(updated: Note[]) {
-    setSaving(true)
-    onMutate(updated)
-    try {
-      await fetch(`/api/notes/${season}/${eventCode}/${teamNumber}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated),
-      })
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function addNote() {
-    const text = input.trim()
-    if (!text) return
-    const note: Note = { id: crypto.randomUUID(), text, timestamp: new Date().toISOString() }
-    setInput('')
-    await saveNotes([...notes, note])
-  }
-
-  async function confirmDelete(id: string) {
-    setConfirmDeleteId(null)
-    await saveNotes(notes.filter(n => n.id !== id))
-  }
-
-  const otherEventNotes = allSeasonNotes.filter(g => g.eventCode !== eventCode)
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Scout Notes</h3>
-        <label className="flex items-center gap-1.5 text-xs text-zinc-500 cursor-pointer select-none">
-          <input type="checkbox" checked={showAllNotes} onChange={onToggleAll} className="accent-sky-500" />
-          Show all season
-        </label>
-      </div>
-
-      <div className="flex flex-col gap-1.5 mb-2">
-        {notes.length === 0 && (
-          <p className="text-xs text-zinc-700 italic">No notes for this event yet.</p>
-        )}
-        {notes.map(n => (
-          <div key={n.id} className="flex gap-2 items-start rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2">
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-zinc-200 whitespace-pre-wrap">{n.text}</p>
-              <p className="text-[10px] text-zinc-600 mt-0.5">
-                {new Date(n.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-              </p>
-            </div>
-            {confirmDeleteId === n.id ? (
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-[10px] text-zinc-400">Delete?</span>
-                <button onClick={() => confirmDelete(n.id)} className="text-[10px] font-semibold text-red-400 hover:text-red-300 transition-colors">Yes</button>
-                <button onClick={() => setConfirmDeleteId(null)} className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors">No</button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setConfirmDeleteId(n.id)}
-                disabled={saving}
-                className="text-zinc-700 hover:text-red-400 transition-colors shrink-0 mt-0.5 disabled:opacity-40"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div className="flex gap-2">
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addNote() } }}
-          placeholder="Add a note…"
-          className="flex-1 h-8 px-2.5 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-sky-500"
-        />
-        <button
-          onClick={addNote}
-          disabled={!input.trim() || saving}
-          className="h-8 px-3 text-xs rounded-md border border-zinc-700 bg-zinc-800 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors disabled:opacity-40"
-        >
-          {saving ? '…' : 'Add'}
-        </button>
-      </div>
-
-      {showAllNotes && otherEventNotes.length > 0 && (
-        <div className="mt-4 flex flex-col gap-3">
-          {otherEventNotes.map(group => (
-            <div key={group.eventCode}>
-              <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-1.5">
-                {eventName(group.eventCode)}
-              </p>
-              <div className="flex flex-col gap-1.5">
-                {group.notes.map(n => (
-                  <div key={n.id} className="rounded-lg border border-zinc-800/60 bg-zinc-900/50 px-3 py-2">
-                    <p className="text-xs text-zinc-400 whitespace-pre-wrap">{n.text}</p>
-                    <p className="text-[10px] text-zinc-600 mt-0.5">
-                      {new Date(n.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {showAllNotes && otherEventNotes.length === 0 && notes.length > 0 && (
-        <p className="text-xs text-zinc-700 italic mt-3">No notes from other events this season.</p>
       )}
     </div>
   )

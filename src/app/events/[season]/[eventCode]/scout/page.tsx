@@ -10,6 +10,7 @@ import { calculateOPR, type TeamOPR } from '@/lib/opr'
 import { getSeasonConfig } from '@/lib/season-config'
 import type { HybridScheduleResponse, HybridMatch, RankingsResponse } from '@/lib/ftc-client'
 import type { MatchScoutEntry } from '@/app/api/match-scout/[season]/[eventCode]/[matchNumber]/[teamNumber]/route'
+import type { MatchScoutEntryWithMatch } from '@/app/api/match-scout/[season]/[eventCode]/route'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
@@ -149,8 +150,6 @@ function TeamScoutCard({
 // ── Scout Board ──────────────────────────────────────────────────────────────
 
 type BoardSortKey = 'team' | 'avgAuto' | 'avgTeleop' | 'avgRating' | 'nopr' | 'scouted'
-
-interface EventNote { id: string; text: string; timestamp: string }
 
 interface BoardRow {
   teamNumber: number
@@ -358,12 +357,8 @@ function ScoutBoard({
   eventCode: string
   schedule: HybridMatch[]
 }) {
-  const { data: allMatchScout } = useSWR<Record<string, MatchScoutEntry[]>>(
+  const { data: allMatchScout } = useSWR<Record<string, MatchScoutEntryWithMatch[]>>(
     `/api/match-scout/${season}/${eventCode}`,
-    fetcher
-  )
-  const { data: allNotes } = useSWR<Record<string, EventNote[]>>(
-    `/api/notes/${season}/${eventCode}`,
     fetcher
   )
   const { data: rankData } = useSWR<RankingsResponse>(
@@ -377,6 +372,7 @@ function ScoutBoard({
   const [sortKey, setSortKey] = useState<BoardSortKey>('avgRating')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [compareTeams, setCompareTeams] = useState<string[]>([])
+  const [notesTeam, setNotesTeam] = useState<string | null>(null)
 
   function toggleSort(key: BoardSortKey) {
     if (sortKey === key) {
@@ -436,9 +432,9 @@ function ScoutBoard({
       }
       const topEndgame = Object.entries(endgameCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
       const nopr = opr[team.teamNumber]?.nopr ?? null
-      const teamNotes = allNotes?.[key] ?? []
-      const latestNote = [...teamNotes]
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]?.text ?? null
+      const latestNote = [...entries]
+        .filter(e => e.notes?.trim())
+        .sort((a, b) => new Date(b.scoutedAt).getTime() - new Date(a.scoutedAt).getTime())[0]?.notes ?? null
 
       return {
         teamNumber: team.teamNumber,
@@ -452,7 +448,7 @@ function ScoutBoard({
         latestNote,
       }
     })
-  }, [teams, allMatchScout, allNotes, opr])
+  }, [teams, allMatchScout, opr])
 
   const sorted = useMemo(() => {
     return [...rows].sort((a, b) => {
@@ -578,9 +574,13 @@ function ScoutBoard({
                     </td>
                     <td className="py-2.5 px-3 text-xs text-zinc-500 max-w-[200px]">
                       {row.latestNote ? (
-                        <span className="truncate block" title={row.latestNote}>
+                        <button
+                          onClick={() => setNotesTeam(key)}
+                          className="truncate block text-left hover:text-sky-400 transition-colors w-full"
+                          title="Click to see all notes"
+                        >
                           {row.latestNote.length > 60 ? row.latestNote.slice(0, 60) + '…' : row.latestNote}
-                        </span>
+                        </button>
                       ) : (
                         <span className="text-zinc-700">—</span>
                       )}
@@ -614,6 +614,47 @@ function ScoutBoard({
           />
         </div>
       )}
+
+      {notesTeam && (() => {
+        const entries = (allMatchScout?.[notesTeam] ?? [])
+          .filter(e => e.notes?.trim())
+          .sort((a, b) => a.matchNumber - b.matchNumber)
+        const teamRow = rows.find(r => String(r.teamNumber) === notesTeam)
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+            onClick={() => setNotesTeam(null)}
+          >
+            <div
+              className="bg-zinc-900 border border-zinc-700 rounded-xl w-full max-w-md mx-4 overflow-hidden shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+                <div>
+                  <span className="text-sm font-bold text-zinc-200">Team {notesTeam}</span>
+                  {teamRow && <span className="text-xs text-zinc-500 ml-2">{teamRow.teamName}</span>}
+                </div>
+                <button
+                  onClick={() => setNotesTeam(null)}
+                  className="text-zinc-600 hover:text-zinc-300 text-sm px-1 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="px-4 py-3 max-h-[60vh] overflow-y-auto flex flex-col gap-3">
+                {entries.length === 0 ? (
+                  <p className="text-zinc-600 text-sm text-center py-4">No match notes yet.</p>
+                ) : entries.map(e => (
+                  <div key={e.matchNumber} className="flex gap-3">
+                    <span className="text-[10px] font-mono text-sky-500 shrink-0 mt-0.5 w-8">Q{e.matchNumber}</span>
+                    <p className="text-xs text-zinc-300 leading-relaxed">{e.notes}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
