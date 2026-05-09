@@ -22,9 +22,9 @@ const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 const SEASONS = [
   { value: '2026', label: '2026–27 BioBuzz' },
-  { value: '2025', label: '2025–26' },
+  { value: '2025', label: '2025–26 Decode' },
   { value: '2024', label: '2024–25 Into The Deep' },
-  { value: '2023', label: '2023–24 CENTERSTAGE' },
+  { value: '2023', label: '2023–24 Centerstage' },
 ]
 
 const TYPE_ORDER = [
