@@ -23,10 +23,14 @@ export async function POST(request: NextRequest) {
 
   const pathname = `photos/${season}/${eventCode}/${teamNumber}.${ext}`
 
-  const blob = await put(pathname, file, {
-    access: 'public',
-    addRandomSuffix: false,
-  })
-
-  return Response.json({ url: blob.url })
+  try {
+    const blob = await put(pathname, file, {
+      access: 'public',
+      addRandomSuffix: false,
+    })
+    return Response.json({ url: blob.url })
+  } catch (e) {
+    console.error('Blob upload error:', e)
+    return Response.json({ error: e instanceof Error ? e.message : 'Upload failed' }, { status: 500 })
+  }
 }
