@@ -163,7 +163,7 @@ export default function HomePage() {
             </button>
           </form>
 
-          <Select value={season} onValueChange={setSeason}>
+          <Select value={season} onValueChange={v => { if (v) setSeason(v) }}>
             <SelectTrigger className="w-52 bg-zinc-800 border-zinc-700 text-sm h-9">
               <SelectValue />
             </SelectTrigger>
