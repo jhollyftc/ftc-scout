@@ -1,65 +1,265 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import { useState } from 'react'
+import useSWR from 'swr'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { Search, Calendar, MapPin, Trophy, Users } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import type { FTCEvent, EventsResponse } from '@/lib/ftc-client'
+
+const fetcher = (url: string) => fetch(url).then(r => r.json())
+
+const SEASONS = [
+  { value: '2026', label: '2026–27 BioBuzz' },
+  { value: '2025', label: '2025–26' },
+  { value: '2024', label: '2024–25 Into The Deep' },
+  { value: '2023', label: '2023–24 CENTERSTAGE' },
+]
+
+const TYPE_ORDER = [
+  'Championship',
+  'Super Regional',
+  'State Championship',
+  'Regional Championship',
+  'League Tournament',
+  'League Meet',
+  'Qualifier',
+  'Scrimmage',
+  'Other',
+]
+
+function typeBadgeClass(type: string): string {
+  switch (type) {
+    case 'Championship':
+      return 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30'
+    case 'Super Regional':
+      return 'bg-orange-500/15 text-orange-300 border-orange-500/30'
+    case 'State Championship':
+    case 'Regional Championship':
+      return 'bg-purple-500/15 text-purple-300 border-purple-500/30'
+    case 'League Tournament':
+      return 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+    case 'League Meet':
+      return 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
+    default:
+      return 'bg-zinc-700/50 text-zinc-400 border-zinc-600/50'
+  }
+}
+
+function fmtDateRange(start: string, end: string): string {
+  const s = new Date(start)
+  const e = new Date(end)
+  const mo: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
+  if (s.toDateString() === e.toDateString())
+    return s.toLocaleDateString('en-US', { ...mo, year: 'numeric' })
+  if (s.getMonth() === e.getMonth())
+    return `${s.toLocaleDateString('en-US', mo)}–${e.getDate()}, ${s.getFullYear()}`
+  return `${s.toLocaleDateString('en-US', mo)} – ${e.toLocaleDateString('en-US', mo)}, ${s.getFullYear()}`
+}
+
+function EventCard({ event, season }: { event: FTCEvent; season: string }) {
+  const location = [event.city, event.stateprov, event.country !== 'US' ? event.country : null]
+    .filter(Boolean)
+    .join(', ')
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <Link
+      href={`/events/${season}/${event.code}`}
+      className="block rounded-lg border border-zinc-800 bg-zinc-900 p-4 hover:border-zinc-600 hover:bg-zinc-800/60 transition-colors group"
+    >
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <h3 className="font-medium text-sm leading-snug group-hover:text-orange-300 transition-colors">
+          {event.name}
+        </h3>
+        <Badge className={`shrink-0 text-xs border ${typeBadgeClass(event.typeName)}`}>
+          {event.typeName}
+        </Badge>
+      </div>
+      <div className="flex items-center gap-1.5 text-xs text-zinc-500 mb-1">
+        <Calendar className="w-3.5 h-3.5 shrink-0" />
+        {fmtDateRange(event.dateStart, event.dateEnd)}
+      </div>
+      {location && (
+        <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+          <MapPin className="w-3.5 h-3.5 shrink-0" />
+          {location}
+        </div>
+      )}
+      <p className="text-xs text-zinc-700 mt-2 font-mono">{event.code}</p>
+    </Link>
+  )
+}
+
+export default function HomePage() {
+  const [season, setSeason] = useState('2025')
+  const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState<string | null>(null)
+  const [teamInput, setTeamInput] = useState('')
+  const router = useRouter()
+
+  function handleTeamSearch(e: React.FormEvent) {
+    e.preventDefault()
+    const num = teamInput.trim()
+    if (num) router.push(`/teams/${season}/${num}`)
+  }
+
+  const { data, isLoading, error } = useSWR<EventsResponse>(
+    `/api/ftc/${season}/events`,
+    fetcher
+  )
+
+  const allEvents = data?.events ?? []
+
+  const types = Array.from(new Set(allEvents.map(e => e.typeName))).sort(
+    (a, b) => TYPE_ORDER.indexOf(a) - TYPE_ORDER.indexOf(b)
+  )
+
+  const events = allEvents
+    .filter(e => e.published)
+    .filter(
+      e =>
+        !search ||
+        e.name.toLowerCase().includes(search.toLowerCase()) ||
+        e.city?.toLowerCase().includes(search.toLowerCase()) ||
+        e.code.toLowerCase().includes(search.toLowerCase())
+    )
+    .filter(e => !typeFilter || e.typeName === typeFilter)
+    .sort((a, b) => new Date(a.dateStart).getTime() - new Date(b.dateStart).getTime())
+
+  return (
+    <div className="min-h-screen">
+      <header className="border-b border-zinc-800 bg-zinc-900/80 backdrop-blur sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-orange-400" />
+            <span className="text-base font-bold tracking-tight">FTC Nova Pyra Scout</span>
+          </div>
+          <form onSubmit={handleTeamSearch} className="flex items-center gap-1.5">
+            <div className="relative">
+              <Users className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
+              <input
+                type="number"
+                placeholder="Team #"
+                value={teamInput}
+                onChange={e => setTeamInput(e.target.value)}
+                className="w-28 h-9 pl-8 pr-2 text-sm rounded-md border border-zinc-700 bg-zinc-800 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!teamInput.trim()}
+              className="h-9 px-3 text-sm rounded-md border border-zinc-700 bg-zinc-800 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+              Go
+            </button>
+          </form>
+
+          <Select value={season} onValueChange={setSeason}>
+            <SelectTrigger className="w-52 bg-zinc-800 border-zinc-700 text-sm h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-zinc-800 border-zinc-700">
+              {SEASONS.map(s => (
+                <SelectItem
+                  key={s.value}
+                  value={s.value}
+                  className="text-zinc-100 focus:bg-zinc-700 focus:text-zinc-100"
+                >
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" />
+          <Input
+            placeholder="Search events, cities, codes..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9 bg-zinc-900 border-zinc-700 placeholder:text-zinc-600 focus-visible:ring-orange-500/50"
+          />
+        </div>
+
+        {types.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            <FilterChip active={typeFilter === null} onClick={() => setTypeFilter(null)}>
+              All
+            </FilterChip>
+            {types.map(t => (
+              <FilterChip
+                key={t}
+                active={typeFilter === t}
+                onClick={() => setTypeFilter(typeFilter === t ? null : t)}
+              >
+                {t}
+              </FilterChip>
+            ))}
+          </div>
+        )}
+
+        {isLoading && (
+          <p className="text-zinc-500 text-sm py-12 text-center">Loading events…</p>
+        )}
+        {error && (
+          <p className="text-red-400 text-sm py-12 text-center">
+            Failed to load events. Check API credentials.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+        )}
+
+        {!isLoading && !error && (
+          <>
+            <p className="text-zinc-600 text-xs mb-4">{events.length} events</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {events.map(e => (
+                <EventCard key={e.code} event={e} season={season} />
+              ))}
+            </div>
+            {events.length === 0 && (
+              <p className="text-zinc-500 text-sm py-12 text-center">
+                {season === '2026'
+                  ? "BioBuzz events haven't been published yet — check back closer to the season."
+                  : 'No events match your search.'}
+              </p>
+            )}
+          </>
+        )}
       </main>
     </div>
-  );
+  )
+}
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+        active
+          ? 'bg-orange-500/20 border-orange-500/40 text-orange-300'
+          : 'border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300'
+      }`}
+    >
+      {children}
+    </button>
+  )
 }
