@@ -731,8 +731,14 @@ function RobotPhoto({
     }
   }
 
-  // Photos from other events in this season (for history strip)
-  const pastPhotos = history.filter(h => h.eventCode !== currentEventCode)
+  // Photos from earlier events this season — exclude current event and anything
+  // uploaded after the current event's photo (e.g. a future championship)
+  const primaryPhoto = history.find(h => h.eventCode === currentEventCode) ?? history[0] ?? null
+  const pastPhotos = history.filter(h =>
+    h.eventCode !== currentEventCode &&
+    primaryPhoto !== null &&
+    new Date(h.uploadedAt) < new Date(primaryPhoto.uploadedAt)
+  )
 
   return (
     <>
