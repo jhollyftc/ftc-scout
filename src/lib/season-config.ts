@@ -69,9 +69,8 @@ export const SEASON_CONFIGS: Record<string, SeasonConfig> = {
         type: 'select',
         options: [
           'None',
-          'Leaves zone',
-          'Scores (1 element)',
-          'Scores (2+ elements)',
+          'Near Auto Only',
+          'Far Auto Only',
           'Full auto routine',
         ],
       },
@@ -85,7 +84,7 @@ export const SEASON_CONFIGS: Record<string, SeasonConfig> = {
         key: 'endgame',
         label: 'Endgame',
         type: 'select',
-        options: ['No attempt', 'Park', 'Low hang', 'High hang'],
+        options: ['No attempt', 'Partial Park', 'Full Park', 'Full Park'],
       },
       {
         key: 'consistency',
