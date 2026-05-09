@@ -264,9 +264,10 @@ export default function ComparePage({
       )}
 
       {bothSelected && (
-        <div className="rounded-lg border border-zinc-800 overflow-hidden">
+        <div className="overflow-x-auto rounded-lg border border-zinc-800">
+        <div className="min-w-[420px]">
           {/* Header row */}
-          <div className="grid grid-cols-[160px_1fr_1fr] bg-zinc-900 border-b border-zinc-800">
+          <div className="grid grid-cols-[140px_1fr_1fr] bg-zinc-900 border-b border-zinc-800">
             <div />
             {[
               { num: teamA, name: nameA },
@@ -289,7 +290,7 @@ export default function ComparePage({
             <div
               key={row.label}
               className={[
-                'grid grid-cols-[160px_1fr_1fr]',
+                'grid grid-cols-[140px_1fr_1fr]',
                 row.dividerBefore ? 'border-t-2 border-zinc-700' : 'border-b border-zinc-800',
                 row.scoutOnly ? 'bg-green-950/20' : i % 2 === 1 ? 'bg-zinc-900/30' : '',
               ].join(' ')}
@@ -320,6 +321,7 @@ export default function ComparePage({
               })}
             </div>
           ))}
+        </div>
         </div>
       )}
     </div>

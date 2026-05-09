@@ -157,48 +157,14 @@ export default function HomePage() {
   return (
     <div className="min-h-screen">
       <header className="border-b border-zinc-800 bg-zinc-900/80 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Image src="/logo.png" alt="Nova Pyra" width={44} height={44} className="drop-shadow-[0_0_6px_rgba(96,165,250,0.5)]" />
+        <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+          {/* Logo + title — occupies first row left on mobile */}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <Image src="/logo.png" alt="Nova Pyra" width={44} height={44} className="drop-shadow-[0_0_6px_rgba(96,165,250,0.5)] shrink-0" />
             <span className="text-base font-bold tracking-tight">FTC Nova Pyra Scout</span>
           </div>
-          <form onSubmit={handleTeamSearch} className="flex items-center gap-1.5">
-            <div className="relative">
-              <Users className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
-              <input
-                type="number"
-                placeholder="Team #"
-                value={teamInput}
-                onChange={e => setTeamInput(e.target.value)}
-                className="w-28 h-9 pl-8 pr-2 text-sm rounded-md border border-zinc-700 bg-zinc-800 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-sky-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={!teamInput.trim()}
-              className="h-9 px-3 text-sm rounded-md border border-zinc-700 bg-zinc-800 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Go
-            </button>
-          </form>
 
-          <Select value={season} onValueChange={v => { if (v) setSeason(v) }}>
-            <SelectTrigger className="w-52 bg-zinc-800 border-zinc-700 text-sm h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-zinc-800 border-zinc-700">
-              {SEASONS.map(s => (
-                <SelectItem
-                  key={s.value}
-                  value={s.value}
-                  className="text-zinc-100 focus:bg-zinc-700 focus:text-zinc-100"
-                >
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
+          {/* Scout button — stays on first row right on mobile */}
           {isScout ? (
             <button
               onClick={lock}
@@ -235,6 +201,47 @@ export default function HomePage() {
               Scout
             </button>
           )}
+
+          {/* Team search + season — wraps to second row on mobile */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <form onSubmit={handleTeamSearch} className="flex items-center gap-1.5 flex-1 sm:flex-none">
+              <div className="relative flex-1 sm:flex-none">
+                <Users className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
+                <input
+                  type="number"
+                  placeholder="Team #"
+                  value={teamInput}
+                  onChange={e => setTeamInput(e.target.value)}
+                  className="w-full sm:w-28 h-9 pl-8 pr-2 text-sm rounded-md border border-zinc-700 bg-zinc-800 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-sky-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={!teamInput.trim()}
+                className="h-9 px-3 text-sm rounded-md border border-zinc-700 bg-zinc-800 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Go
+              </button>
+            </form>
+            <div className="flex-1 sm:flex-none sm:w-52">
+              <Select value={season} onValueChange={v => { if (v) setSeason(v) }}>
+                <SelectTrigger className="w-full bg-zinc-800 border-zinc-700 text-sm h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-800 border-zinc-700">
+                  {SEASONS.map(s => (
+                    <SelectItem
+                      key={s.value}
+                      value={s.value}
+                      className="text-zinc-100 focus:bg-zinc-700 focus:text-zinc-100"
+                    >
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
       </header>
 

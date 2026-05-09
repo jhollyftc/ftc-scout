@@ -86,10 +86,10 @@ export default function EventNav({
       <div className="ml-auto flex items-center gap-1.5 shrink-0">
         <input
           type="number"
-          placeholder="Highlight team…"
+          placeholder="Highlight…"
           value={highlightTeam}
           onChange={e => setHighlight(e.target.value)}
-          className="w-36 h-7 px-2 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-sky-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          className="w-24 sm:w-36 h-7 px-2 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-sky-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
         {highlightTeam && (
           <button
