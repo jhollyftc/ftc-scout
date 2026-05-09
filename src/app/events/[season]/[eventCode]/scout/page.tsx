@@ -3,6 +3,7 @@
 import { use, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
+import { useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react'
 import { useScoutMode } from '@/lib/scout-mode'
 import { calculateOPR, type TeamOPR } from '@/lib/opr'
@@ -624,6 +625,8 @@ export default function ScoutPage({
 }) {
   const { season, eventCode } = use(params)
   const { isScout } = useScoutMode()
+  const searchParams = useSearchParams()
+  const matchParam = searchParams.get('match') ? Number(searchParams.get('match')) : null
 
   const { data, isLoading } = useSWR<HybridScheduleResponse>(
     `/api/ftc/${season}/schedule/${eventCode}/qual/hybrid`,
@@ -634,7 +637,7 @@ export default function ScoutPage({
   const config = getSeasonConfig(season)
   const schedule = data?.schedule ?? []
   const nextMatchNumber = schedule.find(m => m.scoreRedFinal === null)?.matchNumber ?? schedule[0]?.matchNumber ?? 1
-  const [selectedMatch, setSelectedMatch] = useState<number | null>(null)
+  const [selectedMatch, setSelectedMatch] = useState<number | null>(matchParam)
   const [view, setView] = useState<'match' | 'board'>('match')
 
   useEffect(() => {

@@ -102,16 +102,16 @@ function MatchRow({ match, nextMatchNumber, season, eventCode, highlightTeam, op
           </span>
         ) : hasPred ? (
           <div className="text-right">
-            <div className="font-mono text-xs">
-              <span className={predRedFavored ? 'text-red-400/70 font-medium' : 'text-zinc-600'}>
+            <div className="font-mono text-xs italic">
+              <span className={predRedFavored ? 'text-red-400/40 font-medium' : 'text-zinc-700'}>
                 {Math.round(predRed!)}
               </span>
-              <span className="text-zinc-700 mx-1">–</span>
-              <span className={predBlueFavored ? 'text-blue-400/70 font-medium' : 'text-zinc-600'}>
+              <span className="text-zinc-800 mx-1">–</span>
+              <span className={predBlueFavored ? 'text-blue-400/40 font-medium' : 'text-zinc-700'}>
                 {Math.round(predBlue!)}
               </span>
             </div>
-            <div className="text-[10px] text-zinc-700 mt-0.5">predicted</div>
+            <div className="text-[10px] text-sky-500/70 mt-0.5">predicted</div>
           </div>
         ) : (
           <Badge className="text-xs bg-zinc-800/50 text-zinc-500 border-zinc-700 font-normal">

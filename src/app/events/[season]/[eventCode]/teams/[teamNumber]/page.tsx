@@ -220,7 +220,18 @@ export default function TeamProfilePage({
 
                       return (
                         <tr key={m.matchNumber} className="border-b border-zinc-800 hover:bg-zinc-900/60 transition-colors">
-                          <td className="py-2.5 px-3 text-xs font-mono text-zinc-500">Q{m.matchNumber}</td>
+                          <td className="py-2.5 px-3 text-xs font-mono text-zinc-500">
+                            {isScout ? (
+                              <Link
+                                href={`/events/${season}/${eventCode}/scout?match=${m.matchNumber}`}
+                                className="hover:text-sky-400 transition-colors"
+                              >
+                                Q{m.matchNumber}
+                              </Link>
+                            ) : (
+                              <>Q{m.matchNumber}</>
+                            )}
+                          </td>
                           <td className="py-2.5 px-3">
                             <span className={`text-xs font-medium ${allyColor}`}>
                               {onRed ? 'Red' : 'Blue'}
