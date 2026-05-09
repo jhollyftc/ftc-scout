@@ -4,7 +4,8 @@ import { useState } from 'react'
 import useSWR from 'swr'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Search, Calendar, MapPin, Trophy, Users, Shield, Lock } from 'lucide-react'
+import Image from 'next/image'
+import { Search, Calendar, MapPin, Users, Shield, Lock } from 'lucide-react'
 import { useScoutMode } from '@/lib/scout-mode'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -158,7 +159,7 @@ export default function HomePage() {
       <header className="border-b border-zinc-800 bg-zinc-900/80 backdrop-blur sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-orange-400" />
+            <Image src="/logo.png" alt="Nova Pyra" width={28} height={28} className="drop-shadow-[0_0_6px_rgba(96,165,250,0.5)]" />
             <span className="text-base font-bold tracking-tight">FTC Nova Pyra Scout</span>
           </div>
           <form onSubmit={handleTeamSearch} className="flex items-center gap-1.5">

@@ -3,7 +3,8 @@
 import { use } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
-import { ArrowLeft, Calendar, MapPin, Trophy } from 'lucide-react'
+import Image from 'next/image'
+import { ArrowLeft, Calendar, MapPin } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import type { TeamsResponse, EventsResponse, FTCEvent } from '@/lib/ftc-client'
 
@@ -113,7 +114,7 @@ export default function TeamSeasonPage({
           <Link href="/" className="flex items-center gap-2 text-zinc-500 hover:text-zinc-200 transition-colors">
             <ArrowLeft className="w-4 h-4" />
           </Link>
-          <Trophy className="w-5 h-5 text-orange-400" />
+          <Image src="/logo.png" alt="Nova Pyra" width={28} height={28} className="drop-shadow-[0_0_6px_rgba(96,165,250,0.5)]" />
           <span className="text-base font-bold tracking-tight">FTC Nova Pyra Scout</span>
           <span className="text-zinc-700 ml-1">·</span>
           <span className="text-sm text-zinc-400">{SEASONS[season] ?? season}</span>
