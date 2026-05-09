@@ -300,7 +300,7 @@ export default function TeamProfilePage({
                         href={`/events/${season}/${e.code}/teams/${teamNumber}`}
                         className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs transition-colors ${
                           isCurrent
-                            ? 'border-orange-500/30 bg-orange-500/5 text-zinc-300'
+                            ? 'border-sky-500/30 bg-sky-500/5 text-zinc-300'
                             : 'border-zinc-800 hover:border-zinc-600 text-zinc-400 hover:text-zinc-200'
                         }`}
                       >
@@ -389,7 +389,7 @@ function PitScoutingForm({
     saved.drivetrain || saved.auto || saved.teleop || saved.endgame || saved.consistency || saved.notes
   )
 
-  const selectClass = 'w-full h-8 px-2 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 focus:outline-none focus:border-orange-500 appearance-none'
+  const selectClass = 'w-full h-8 px-2 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 focus:outline-none focus:border-sky-500 appearance-none'
 
   return (
     <div>
@@ -428,7 +428,7 @@ function PitScoutingForm({
                 <span className="text-[10px] bg-zinc-800 text-zinc-300 rounded px-1.5 py-0.5">{form.endgame}</span>
               )}
               {form.consistency && (
-                <span className="text-[10px] bg-orange-500/10 text-orange-300 rounded px-1.5 py-0.5">
+                <span className="text-[10px] bg-sky-500/10 text-sky-300 rounded px-1.5 py-0.5">
                   Consistency: {form.consistency}/5
                 </span>
               )}
@@ -472,7 +472,7 @@ function PitScoutingForm({
                   onClick={() => set('consistency', form.consistency === n ? null : n)}
                   className={`w-8 h-8 rounded-md text-xs font-semibold border transition-colors ${
                     form.consistency === n
-                      ? 'bg-orange-500/20 border-orange-500/50 text-orange-300'
+                      ? 'bg-sky-500/20 border-sky-500/50 text-sky-300'
                       : 'border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300'
                   }`}
                 >
@@ -490,7 +490,7 @@ function PitScoutingForm({
               onChange={e => set('notes', e.target.value)}
               placeholder="Observations, strengths, weaknesses…"
               rows={3}
-              className="w-full px-2.5 py-2 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500 resize-none"
+              className="w-full px-2.5 py-2 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-sky-500 resize-none"
             />
           </div>
 
@@ -499,7 +499,7 @@ function PitScoutingForm({
             <button
               onClick={handleSave}
               disabled={saving}
-              className="h-8 px-4 text-xs rounded-md border border-orange-500/40 bg-orange-500/10 text-orange-300 hover:bg-orange-500/20 transition-colors disabled:opacity-40"
+              className="h-8 px-4 text-xs rounded-md border border-sky-500/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 transition-colors disabled:opacity-40"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
@@ -576,7 +576,7 @@ function ScoutNotes({
             type="checkbox"
             checked={showAllNotes}
             onChange={onToggleAll}
-            className="accent-orange-500"
+            className="accent-sky-500"
           />
           Show all season
         </label>
@@ -631,7 +631,7 @@ function ScoutNotes({
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addNote() } }}
           placeholder="Add a note…"
-          className="flex-1 h-8 px-2.5 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500"
+          className="flex-1 h-8 px-2.5 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-sky-500"
         />
         <button
           onClick={addNote}
@@ -676,7 +676,7 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2">
       <p className="text-xs text-zinc-500 mb-0.5">{label}</p>
-      <p className={`text-lg font-bold font-mono ${accent ? 'text-orange-300' : 'text-zinc-200'}`}>
+      <p className={`text-lg font-bold font-mono ${accent ? 'text-sky-300' : 'text-zinc-200'}`}>
         {value}
       </p>
     </div>

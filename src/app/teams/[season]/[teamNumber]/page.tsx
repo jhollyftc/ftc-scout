@@ -22,7 +22,7 @@ function typeBadgeClass(type: string): string {
     case 'Championship':
       return 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30'
     case 'Super Regional':
-      return 'bg-orange-500/15 text-orange-300 border-orange-500/30'
+      return 'bg-sky-500/15 text-sky-300 border-sky-500/30'
     case 'State Championship':
     case 'Regional Championship':
       return 'bg-purple-500/15 text-purple-300 border-purple-500/30'
@@ -58,7 +58,7 @@ function EventRow({ event, season, teamNumber }: { event: FTCEvent; season: stri
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-start gap-2 mb-1.5">
-          <span className="font-medium text-sm leading-snug group-hover:text-orange-300 transition-colors flex-1">
+          <span className="font-medium text-sm leading-snug group-hover:text-sky-300 transition-colors flex-1">
             {event.name}
           </span>
           <Badge className={`shrink-0 text-xs border ${typeBadgeClass(event.typeName)}`}>

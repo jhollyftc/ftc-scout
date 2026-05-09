@@ -54,7 +54,7 @@ function ResultRow({ match, season, eventCode, highlightTeam, opr }: {
       isDimmed
         ? 'opacity-25'
         : isHighlighted
-        ? 'bg-orange-500/10 border-l-2 border-l-orange-500'
+        ? 'bg-sky-500/10 border-l-2 border-l-sky-500'
         : 'hover:bg-zinc-900/60'
     }`}>
       {/* Match number + upset flag */}

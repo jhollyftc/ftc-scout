@@ -30,7 +30,7 @@ function RatingButtons({ value, onChange }: { value: number | null; onChange: (v
           onClick={() => onChange(value === n ? null : n)}
           className={`w-7 h-7 rounded text-xs font-semibold border transition-colors ${
             value === n
-              ? 'bg-orange-500/20 border-orange-500/50 text-orange-300'
+              ? 'bg-sky-500/20 border-sky-500/50 text-sky-300'
               : 'border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300'
           }`}
         >
@@ -117,7 +117,7 @@ function TeamScoutCard({
         <select
           value={form.endgame}
           onChange={e => set('endgame', e.target.value)}
-          className="w-full h-7 px-2 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-200 focus:outline-none focus:border-orange-500 appearance-none"
+          className="w-full h-7 px-2 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-200 focus:outline-none focus:border-sky-500 appearance-none"
         >
           <option value="">— select —</option>
           {ENDGAME_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
@@ -132,7 +132,7 @@ function TeamScoutCard({
           onChange={e => set('notes', e.target.value)}
           placeholder="Observations…"
           rows={2}
-          className="w-full px-2 py-1.5 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500 resize-none"
+          className="w-full px-2 py-1.5 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-sky-500 resize-none"
         />
       </div>
 
@@ -141,7 +141,7 @@ function TeamScoutCard({
         <button
           onClick={handleSave}
           disabled={saving}
-          className="h-7 px-3 text-xs rounded border border-orange-500/40 bg-orange-500/10 text-orange-300 hover:bg-orange-500/20 transition-colors disabled:opacity-40"
+          className="h-7 px-3 text-xs rounded border border-sky-500/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 transition-colors disabled:opacity-40"
         >
           {saving ? 'Saving…' : 'Save'}
         </button>
@@ -278,7 +278,7 @@ function ScoutBoard({
       >
         <span className="flex items-center gap-0.5">
           {label}
-          <ArrowUpDown className={`w-3 h-3 shrink-0 ${active ? 'text-orange-400' : 'text-zinc-700'}`} />
+          <ArrowUpDown className={`w-3 h-3 shrink-0 ${active ? 'text-sky-400' : 'text-zinc-700'}`} />
         </span>
       </th>
     )
@@ -286,7 +286,7 @@ function ScoutBoard({
 
   function Rating({ value }: { value: number | null }) {
     if (value === null) return <span className="text-zinc-700">—</span>
-    const color = value >= 4 ? 'text-green-400' : value >= 3 ? 'text-orange-300' : 'text-zinc-400'
+    const color = value >= 4 ? 'text-green-400' : value >= 3 ? 'text-sky-300' : 'text-zinc-400'
     return <span className={`font-mono font-semibold ${color}`}>{value.toFixed(1)}</span>
   }
 
@@ -315,7 +315,7 @@ function ScoutBoard({
               <td className="py-2.5 px-3">
                 <Link
                   href={`/events/${season}/${eventCode}/teams/${row.teamNumber}`}
-                  className="text-xs font-bold text-orange-400 hover:underline block"
+                  className="text-xs font-bold text-sky-400 hover:underline block"
                 >
                   {row.teamNumber}
                 </Link>
@@ -444,7 +444,7 @@ export default function ScoutPage({
               <select
                 value={selectedMatch ?? ''}
                 onChange={e => setSelectedMatch(Number(e.target.value))}
-                className="w-full h-9 px-3 text-sm rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 focus:outline-none focus:border-orange-500 appearance-none"
+                className="w-full h-9 px-3 text-sm rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 focus:outline-none focus:border-sky-500 appearance-none"
               >
                 {schedule.map(m => {
                   const done = m.scoreRedFinal !== null

@@ -49,16 +49,16 @@ function MatchRow({ match, nextMatchNumber, season, eventCode, highlightTeam, op
         isDimmed
           ? 'opacity-25'
           : isHighlighted
-          ? 'bg-orange-500/10 border-l-2 border-l-orange-500'
+          ? 'bg-sky-500/10 border-l-2 border-l-sky-500'
           : isNext
-          ? 'bg-orange-500/5'
+          ? 'bg-sky-500/5'
           : 'hover:bg-zinc-900/60'
       }`}
     >
       <td className="py-2.5 px-3 w-16">
         <span className="text-xs font-mono text-zinc-500">Q{match.matchNumber}</span>
         {isNext && (
-          <span className="block text-xs text-orange-400 font-medium">Next</span>
+          <span className="block text-xs text-sky-400 font-medium">Next</span>
         )}
       </td>
       <td className="py-2.5 px-3">

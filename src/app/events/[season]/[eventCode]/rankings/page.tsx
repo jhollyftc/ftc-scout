@@ -15,8 +15,8 @@ type SortKey = 'rank' | 'opr' | 'nopr' | 'auto' | 'teleop'
 function SortIcon({ col, active, dir }: { col: string; active: boolean; dir: 'asc' | 'desc' }) {
   if (!active) return <ChevronsUpDown className="w-3 h-3 inline ml-0.5 text-zinc-600" />
   return dir === 'desc'
-    ? <ChevronDown className="w-3 h-3 inline ml-0.5 text-orange-400" />
-    : <ChevronUp className="w-3 h-3 inline ml-0.5 text-orange-400" />
+    ? <ChevronDown className="w-3 h-3 inline ml-0.5 text-sky-400" />
+    : <ChevronUp className="w-3 h-3 inline ml-0.5 text-sky-400" />
 }
 
 function SortableHeader({
@@ -38,7 +38,7 @@ function SortableHeader({
   return (
     <th
       className={`py-2 px-3 text-xs font-medium cursor-pointer select-none hover:text-zinc-200 transition-colors ${
-        active ? 'text-orange-400' : 'text-zinc-500'
+        active ? 'text-sky-400' : 'text-zinc-500'
       } ${className}`}
       onClick={() => onSort(col)}
     >
@@ -81,7 +81,7 @@ export default function RankingsPage({
   const opr = schedData?.schedule ? calculateOPR(schedData.schedule) : {}
   const rankings = rankData.rankings
 
-  const maxOpr = Math.max(...Object.values(opr).map(o => o.total), 1)
+  const maxNopr = Math.max(...Object.values(opr).map(o => o.nopr), 1)
 
   function handleSort(col: SortKey) {
     if (sortKey === col) {
@@ -130,16 +130,16 @@ export default function RankingsPage({
               <th className="text-left py-2 px-3 text-xs text-zinc-500 font-medium">Team</th>
               <th className="text-center py-2 px-3 text-xs text-zinc-500 font-medium">W-L-T</th>
               <SortableHeader
-                label="OPR"
-                col="opr"
+                label="nOPR"
+                col="nopr"
                 sortKey={sortKey}
                 dir={sortDir}
                 onSort={handleSort}
                 className="text-right"
               />
               <SortableHeader
-                label="nOPR"
-                col="nopr"
+                label="OPR"
+                col="opr"
                 sortKey={sortKey}
                 dir={sortDir}
                 onSort={handleSort}
@@ -169,7 +169,7 @@ export default function RankingsPage({
           <tbody>
             {sorted.map(r => {
               const teamOpr = opr[r.teamNumber]
-              const oprBar = teamOpr ? Math.round((teamOpr.total / maxOpr) * 100) : 0
+              const noprBar = teamOpr ? Math.round((teamOpr.nopr / maxNopr) * 100) : 0
               const isHighlighted = highlightTeam !== null && r.teamNumber === highlightTeam
               const isDimmed = highlightTeam !== null && !isHighlighted
 
@@ -180,14 +180,14 @@ export default function RankingsPage({
                     isDimmed
                       ? 'opacity-25'
                       : isHighlighted
-                      ? 'bg-orange-500/10 border-l-2 border-l-orange-500'
+                      ? 'bg-sky-500/10 border-l-2 border-l-sky-500'
                       : 'hover:bg-zinc-900/60'
                   }`}
                 >
                   <td className="py-2.5 px-3">
                     <span
                       className={`text-xs font-bold ${
-                        r.rank <= 3 ? 'text-orange-400' : 'text-zinc-400'
+                        r.rank <= 3 ? 'text-sky-400' : 'text-zinc-400'
                       }`}
                     >
                       {r.rank}
@@ -196,7 +196,7 @@ export default function RankingsPage({
                   <td className="py-2.5 px-3">
                     <Link
                       href={`/events/${season}/${eventCode}/teams/${r.teamNumber}`}
-                      className="text-sm font-medium text-zinc-100 hover:text-orange-300 transition-colors"
+                      className="text-sm font-medium text-zinc-100 hover:text-sky-300 transition-colors"
                     >
                       {r.teamNumber}
                     </Link>
@@ -217,13 +217,13 @@ export default function RankingsPage({
                         <div className="w-16 hidden sm:block">
                           <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-orange-500/70 rounded-full"
-                              style={{ width: `${oprBar}%` }}
+                              className="h-full bg-sky-500/70 rounded-full"
+                              style={{ width: `${noprBar}%` }}
                             />
                           </div>
                         </div>
-                        <span className="text-xs font-mono text-orange-300 w-10 text-right">
-                          {teamOpr.total.toFixed(1)}
+                        <span className="text-xs font-mono text-sky-300 w-10 text-right">
+                          {teamOpr.nopr.toFixed(1)}
                         </span>
                       </div>
                     ) : (
@@ -232,7 +232,7 @@ export default function RankingsPage({
                   </td>
                   <td className="py-2.5 px-3 text-right hidden sm:table-cell">
                     <span className="text-xs font-mono text-zinc-400">
-                      {teamOpr ? teamOpr.nopr.toFixed(1) : '—'}
+                      {teamOpr ? teamOpr.total.toFixed(1) : '—'}
                     </span>
                   </td>
                   <td className="py-2.5 px-3 text-right hidden md:table-cell">

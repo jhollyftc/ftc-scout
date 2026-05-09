@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import useSWR from 'swr'
@@ -44,7 +44,7 @@ function typeBadgeClass(type: string): string {
     case 'Championship':
       return 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30'
     case 'Super Regional':
-      return 'bg-orange-500/15 text-orange-300 border-orange-500/30'
+      return 'bg-sky-500/15 text-sky-300 border-sky-500/30'
     case 'State Championship':
     case 'Regional Championship':
       return 'bg-purple-500/15 text-purple-300 border-purple-500/30'
@@ -79,7 +79,7 @@ function EventCard({ event, season }: { event: FTCEvent; season: string }) {
       className="block rounded-lg border border-zinc-800 bg-zinc-900 p-4 hover:border-zinc-600 hover:bg-zinc-800/60 transition-colors group"
     >
       <div className="flex items-start justify-between gap-2 mb-2">
-        <h3 className="font-medium text-sm leading-snug group-hover:text-orange-300 transition-colors">
+        <h3 className="font-medium text-sm leading-snug group-hover:text-sky-300 transition-colors">
           {event.name}
         </h3>
         <Badge className={`shrink-0 text-xs border ${typeBadgeClass(event.typeName)}`}>
@@ -170,7 +170,7 @@ export default function HomePage() {
                 placeholder="Team #"
                 value={teamInput}
                 onChange={e => setTeamInput(e.target.value)}
-                className="w-28 h-9 pl-8 pr-2 text-sm rounded-md border border-zinc-700 bg-zinc-800 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="w-28 h-9 pl-8 pr-2 text-sm rounded-md border border-zinc-700 bg-zinc-800 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-sky-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </div>
             <button
@@ -216,7 +216,7 @@ export default function HomePage() {
                 onChange={e => { setPinInput(e.target.value); setPinError(false) }}
                 autoFocus
                 className={`w-20 h-9 px-2 text-sm rounded-md border bg-zinc-800 text-zinc-200 placeholder-zinc-600 focus:outline-none ${
-                  pinError ? 'border-red-500' : 'border-zinc-700 focus:border-orange-500'
+                  pinError ? 'border-red-500' : 'border-zinc-700 focus:border-sky-500'
                 }`}
               />
               <button type="submit" className="h-9 px-3 text-xs rounded-md border border-zinc-700 bg-zinc-800 text-zinc-300 hover:border-zinc-500 transition-colors">
@@ -245,7 +245,7 @@ export default function HomePage() {
             placeholder="Search events, cities, codes..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="pl-9 bg-zinc-900 border-zinc-700 placeholder:text-zinc-600 focus-visible:ring-orange-500/50"
+            className="pl-9 bg-zinc-900 border-zinc-700 placeholder:text-zinc-600 focus-visible:ring-sky-500/50"
           />
         </div>
 
@@ -311,7 +311,7 @@ function FilterChip({
       onClick={onClick}
       className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
         active
-          ? 'bg-orange-500/20 border-orange-500/40 text-orange-300'
+          ? 'bg-sky-500/20 border-sky-500/40 text-sky-300'
           : 'border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300'
       }`}
     >

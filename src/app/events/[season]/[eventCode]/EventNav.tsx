@@ -70,7 +70,7 @@ export default function EventNav({
                 active
                   ? isScoutTab
                     ? 'text-green-400 border-green-400 font-medium'
-                    : 'text-orange-400 border-orange-400 font-medium'
+                    : 'text-sky-400 border-sky-400 font-medium'
                   : isScoutTab
                   ? 'text-green-600 border-transparent hover:text-green-400'
                   : 'text-zinc-500 border-transparent hover:text-zinc-200'
@@ -88,7 +88,7 @@ export default function EventNav({
           placeholder="Highlight team…"
           value={highlightTeam}
           onChange={e => setHighlight(e.target.value)}
-          className="w-36 h-7 px-2 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          className="w-36 h-7 px-2 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-sky-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
         {highlightTeam && (
           <button
