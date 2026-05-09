@@ -5,8 +5,8 @@ import Link from 'next/link'
 import useSWR from 'swr'
 import { ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react'
 import { useScoutMode } from '@/lib/scout-mode'
-import { calculateOPR } from '@/lib/opr'
-import type { HybridScheduleResponse, HybridMatch } from '@/lib/ftc-client'
+import { calculateOPR, type TeamOPR } from '@/lib/opr'
+import type { HybridScheduleResponse, HybridMatch, RankingsResponse } from '@/lib/ftc-client'
 import type { MatchScoutEntry } from '@/app/api/match-scout/[season]/[eventCode]/[matchNumber]/[teamNumber]/route'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
@@ -88,7 +88,6 @@ function TeamScoutCard({
 
   return (
     <div className={`rounded-lg border ${borderColor} bg-zinc-900/50 p-3 flex flex-col gap-3`}>
-      {/* Team header */}
       <div>
         <Link
           href={`/events/${season}/${eventCode}/teams/${team.teamNumber}`}
@@ -98,20 +97,14 @@ function TeamScoutCard({
         </Link>
         <p className="text-[10px] text-zinc-500 truncate">{team.teamName}</p>
       </div>
-
-      {/* Auto */}
       <div>
         <p className="text-[10px] text-zinc-500 mb-1">Auto (1–5)</p>
         <RatingButtons value={form.autoRating} onChange={v => set('autoRating', v)} />
       </div>
-
-      {/* Teleop */}
       <div>
         <p className="text-[10px] text-zinc-500 mb-1">Teleop (1–5)</p>
         <RatingButtons value={form.teleopRating} onChange={v => set('teleopRating', v)} />
       </div>
-
-      {/* Endgame */}
       <div>
         <p className="text-[10px] text-zinc-500 mb-1">Endgame</p>
         <select
@@ -123,8 +116,6 @@ function TeamScoutCard({
           {ENDGAME_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
         </select>
       </div>
-
-      {/* Notes */}
       <div>
         <p className="text-[10px] text-zinc-500 mb-1">Notes</p>
         <textarea
@@ -135,8 +126,6 @@ function TeamScoutCard({
           className="w-full px-2 py-1.5 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-sky-500 resize-none"
         />
       </div>
-
-      {/* Save */}
       <div className="flex items-center gap-2">
         <button
           onClick={handleSave}
@@ -156,9 +145,208 @@ function TeamScoutCard({
   )
 }
 
+// ── Scout Board ──────────────────────────────────────────────────────────────
+
 type BoardSortKey = 'team' | 'avgAuto' | 'avgTeleop' | 'avgRating' | 'nopr' | 'scouted'
 
 interface EventNote { id: string; text: string; timestamp: string }
+
+interface BoardRow {
+  teamNumber: number
+  teamName: string
+  avgAuto: number | null
+  avgTeleop: number | null
+  avgRating: number | null
+  nopr: number | null
+  topEndgame: string | null
+  scouted: number
+  latestNote: string | null
+}
+
+interface PanelRow {
+  label: string
+  a: string
+  b: string
+  winner?: 'a' | 'b' | null
+  divider?: boolean
+  isNote?: boolean
+}
+
+function winSide(a: number | null, b: number | null, lowerBetter = false): 'a' | 'b' | null {
+  if (a === null || b === null || a === b) return null
+  return lowerBetter ? (a < b ? 'a' : 'b') : (a > b ? 'a' : 'b')
+}
+
+function InlineCompare({
+  rowA,
+  rowB,
+  rankData,
+  opr,
+  season,
+  eventCode,
+  onClear,
+}: {
+  rowA: BoardRow
+  rowB: BoardRow
+  rankData: RankingsResponse | undefined
+  opr: Record<number, TeamOPR>
+  season: string
+  eventCode: string
+  onClear: () => void
+}) {
+  const rankA = rankData?.rankings.find(r => r.teamNumber === rowA.teamNumber)
+  const rankB = rankData?.rankings.find(r => r.teamNumber === rowB.teamNumber)
+  const oprA = opr[rowA.teamNumber]
+  const oprB = opr[rowB.teamNumber]
+
+  const panelRows: PanelRow[] = [
+    {
+      label: 'Rank',
+      a: rankA ? `#${rankA.rank}` : '—',
+      b: rankB ? `#${rankB.rank}` : '—',
+      winner: winSide(rankA?.rank ?? null, rankB?.rank ?? null, true),
+    },
+    {
+      label: 'Record',
+      a: rankA ? `${rankA.wins}–${rankA.losses}–${rankA.ties}` : '—',
+      b: rankB ? `${rankB.wins}–${rankB.losses}–${rankB.ties}` : '—',
+      winner: winSide(rankA?.wins ?? null, rankB?.wins ?? null),
+    },
+    {
+      label: 'nOPR',
+      a: oprA ? oprA.nopr.toFixed(1) : '—',
+      b: oprB ? oprB.nopr.toFixed(1) : '—',
+      winner: winSide(oprA?.nopr ?? null, oprB?.nopr ?? null),
+      divider: true,
+    },
+    {
+      label: 'OPR',
+      a: oprA ? oprA.total.toFixed(1) : '—',
+      b: oprB ? oprB.total.toFixed(1) : '—',
+      winner: winSide(oprA?.total ?? null, oprB?.total ?? null),
+    },
+    {
+      label: 'Auto OPR',
+      a: oprA ? oprA.auto.toFixed(1) : '—',
+      b: oprB ? oprB.auto.toFixed(1) : '—',
+      winner: winSide(oprA?.auto ?? null, oprB?.auto ?? null),
+    },
+    {
+      label: 'Teleop OPR',
+      a: oprA ? oprA.teleop.toFixed(1) : '—',
+      b: oprB ? oprB.teleop.toFixed(1) : '—',
+      winner: winSide(oprA?.teleop ?? null, oprB?.teleop ?? null),
+    },
+    {
+      label: 'Scout Auto',
+      a: rowA.avgAuto?.toFixed(1) ?? '—',
+      b: rowB.avgAuto?.toFixed(1) ?? '—',
+      winner: winSide(rowA.avgAuto, rowB.avgAuto),
+      divider: true,
+    },
+    {
+      label: 'Scout Teleop',
+      a: rowA.avgTeleop?.toFixed(1) ?? '—',
+      b: rowB.avgTeleop?.toFixed(1) ?? '—',
+      winner: winSide(rowA.avgTeleop, rowB.avgTeleop),
+    },
+    {
+      label: 'Avg Rating',
+      a: rowA.avgRating?.toFixed(2) ?? '—',
+      b: rowB.avgRating?.toFixed(2) ?? '—',
+      winner: winSide(rowA.avgRating, rowB.avgRating),
+    },
+    {
+      label: 'Endgame',
+      a: rowA.topEndgame ?? '—',
+      b: rowB.topEndgame ?? '—',
+    },
+    {
+      label: 'Scouted',
+      a: String(rowA.scouted),
+      b: String(rowB.scouted),
+      winner: winSide(rowA.scouted, rowB.scouted),
+    },
+    {
+      label: 'Note',
+      a: rowA.latestNote ?? '—',
+      b: rowB.latestNote ?? '—',
+      isNote: true,
+      divider: true,
+    },
+  ]
+
+  const teamHeaders = [
+    { row: rowA, sideLabel: 'A', labelColor: 'text-sky-400' },
+    { row: rowB, sideLabel: 'B', labelColor: 'text-amber-400' },
+  ]
+
+  return (
+    <div className="rounded-lg border border-zinc-800 overflow-hidden">
+      <div className="bg-zinc-900 border-b border-zinc-800 px-3 py-2 flex items-center justify-between">
+        <span className="text-xs text-zinc-400 font-medium">Compare</span>
+        <button
+          onClick={onClear}
+          className="text-zinc-600 hover:text-zinc-300 text-xs px-1 transition-colors"
+          aria-label="Clear comparison"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="grid grid-cols-[76px_1fr_1fr] bg-zinc-900/50 border-b border-zinc-800">
+        <div />
+        {teamHeaders.map(({ row, sideLabel, labelColor }) => (
+          <div key={row.teamNumber} className="py-2 px-2 border-l border-zinc-800 text-center">
+            <span className={`text-[9px] font-bold uppercase tracking-wide ${labelColor}`}>{sideLabel}</span>
+            <Link
+              href={`/events/${season}/${eventCode}/teams/${row.teamNumber}`}
+              className="block text-sm font-bold text-zinc-200 hover:text-sky-300 hover:underline transition-colors leading-tight"
+            >
+              {row.teamNumber}
+            </Link>
+            <p className="text-[9px] text-zinc-600 truncate">{row.teamName}</p>
+          </div>
+        ))}
+      </div>
+
+      {panelRows.map((row, i) => (
+        <div
+          key={row.label}
+          className={[
+            'grid grid-cols-[76px_1fr_1fr]',
+            row.divider ? 'border-t-2 border-zinc-700' : 'border-b border-zinc-800',
+            i % 2 === 1 ? 'bg-zinc-900/30' : '',
+          ].join(' ')}
+        >
+          <div className="py-2 px-3 flex items-center">
+            <span className="text-[10px] text-zinc-600">{row.label}</span>
+          </div>
+          {(['a', 'b'] as const).map(side => {
+            const val = row[side]
+            const isWinner = row.winner === side
+            return (
+              <div key={side} className="py-2 px-2 border-l border-zinc-800 text-center flex items-center justify-center">
+                <span
+                  className={[
+                    row.isNote ? 'text-[10px] text-left block truncate max-w-[90px]' : 'text-xs font-mono',
+                    isWinner ? 'text-sky-300 font-bold' : 'text-zinc-400',
+                    val === '—' ? 'text-zinc-700' : '',
+                  ].join(' ')}
+                  title={row.isNote ? val : undefined}
+                >
+                  {row.isNote && val !== '—'
+                    ? val.length > 30 ? val.slice(0, 30) + '…' : val
+                    : val}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 function ScoutBoard({
   season,
@@ -177,11 +365,17 @@ function ScoutBoard({
     `/api/notes/${season}/${eventCode}`,
     fetcher
   )
+  const { data: rankData } = useSWR<RankingsResponse>(
+    `/api/ftc/${season}/rankings/${eventCode}`,
+    fetcher,
+    { refreshInterval: 30_000 }
+  )
 
   const opr = useMemo(() => calculateOPR(schedule), [schedule])
 
   const [sortKey, setSortKey] = useState<BoardSortKey>('avgRating')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [compareTeams, setCompareTeams] = useState<string[]>([])
 
   function toggleSort(key: BoardSortKey) {
     if (sortKey === key) {
@@ -190,6 +384,14 @@ function ScoutBoard({
       setSortKey(key)
       setSortDir('desc')
     }
+  }
+
+  function toggleCompare(key: string) {
+    setCompareTeams(prev => {
+      if (prev.includes(key)) return prev.filter(t => t !== key)
+      if (prev.length < 2) return [...prev, key]
+      return [prev[1], key]
+    })
   }
 
   const teams = useMemo(() => {
@@ -206,7 +408,7 @@ function ScoutBoard({
     return result.sort((a, b) => a.teamNumber - b.teamNumber)
   }, [schedule])
 
-  const rows = useMemo(() => {
+  const rows = useMemo((): BoardRow[] => {
     return teams.map(team => {
       const key = String(team.teamNumber)
       const entries = allMatchScout?.[key] ?? []
@@ -232,10 +434,7 @@ function ScoutBoard({
         }
       }
       const topEndgame = Object.entries(endgameCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
-
       const nopr = opr[team.teamNumber]?.nopr ?? null
-
-      // Latest note from scout notes (team profile) — most recent timestamp
       const teamNotes = allNotes?.[key] ?? []
       const latestNote = [...teamNotes]
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]?.text ?? null
@@ -269,6 +468,14 @@ function ScoutBoard({
     })
   }, [rows, sortKey, sortDir])
 
+  const compareRowA = compareTeams[0]
+    ? rows.find(r => String(r.teamNumber) === compareTeams[0]) ?? null
+    : null
+  const compareRowB = compareTeams[1]
+    ? rows.find(r => String(r.teamNumber) === compareTeams[1]) ?? null
+    : null
+  const showPanel = compareRowA !== null && compareRowB !== null
+
   function SortTh({ label, col, className }: { label: string; col: BoardSortKey; className?: string }) {
     const active = sortKey === col
     return (
@@ -295,68 +502,117 @@ function ScoutBoard({
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-800">
-      <table className="w-full min-w-[580px]">
-        <thead>
-          <tr className="border-b border-zinc-800 bg-zinc-900">
-            <SortTh label="Team" col="team" className="text-left" />
-            <SortTh label="Scouted" col="scouted" className="text-right" />
-            <SortTh label="Avg Auto" col="avgAuto" className="text-right" />
-            <SortTh label="Avg Teleop" col="avgTeleop" className="text-right" />
-            <th className="py-2 px-3 text-xs font-medium text-zinc-500 text-left whitespace-nowrap">Endgame</th>
-            <SortTh label="Avg Rating" col="avgRating" className="text-right" />
-            <SortTh label="nOPR" col="nopr" className="text-right" />
-            <th className="py-2 px-3 text-xs font-medium text-zinc-500 text-left">Latest Note</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map(row => (
-            <tr key={row.teamNumber} className="border-b border-zinc-800 hover:bg-zinc-900/60 transition-colors">
-              <td className="py-2.5 px-3">
-                <Link
-                  href={`/events/${season}/${eventCode}/teams/${row.teamNumber}`}
-                  className="text-xs font-bold text-sky-400 hover:underline block"
-                >
-                  {row.teamNumber}
-                </Link>
-                <span className="text-[10px] text-zinc-600 truncate max-w-[120px] block">{row.teamName}</span>
-              </td>
-              <td className="py-2.5 px-3 text-xs text-right font-mono text-zinc-400">
-                {row.scouted > 0 ? row.scouted : <span className="text-zinc-700">0</span>}
-              </td>
-              <td className="py-2.5 px-3 text-xs text-right">
-                <Rating value={row.avgAuto} />
-              </td>
-              <td className="py-2.5 px-3 text-xs text-right">
-                <Rating value={row.avgTeleop} />
-              </td>
-              <td className="py-2.5 px-3 text-xs text-zinc-400">
-                {row.topEndgame || <span className="text-zinc-700">—</span>}
-              </td>
-              <td className="py-2.5 px-3 text-xs text-right">
-                <Rating value={row.avgRating} />
-              </td>
-              <td className="py-2.5 px-3 text-xs text-right font-mono text-zinc-400">
-                {row.nopr !== null ? row.nopr.toFixed(1) : <span className="text-zinc-700">—</span>}
-              </td>
-              <td className="py-2.5 px-3 text-xs text-zinc-500 max-w-[200px]">
-                {row.latestNote ? (
-                  <span className="truncate block" title={row.latestNote}>
-                    {row.latestNote.length > 60 ? row.latestNote.slice(0, 60) + '…' : row.latestNote}
-                  </span>
-                ) : (
-                  <span className="text-zinc-700">—</span>
-                )}
-              </td>
-            </tr>
-          ))}
-          {sorted.length === 0 && (
-            <tr>
-              <td colSpan={8} className="py-12 text-center text-zinc-600 text-xs">No teams found.</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+    <div className={showPanel ? 'lg:flex lg:items-start lg:gap-4' : ''}>
+      <div className={showPanel ? 'min-w-0 flex-1' : ''}>
+        <div className="overflow-x-auto rounded-lg border border-zinc-800">
+          <table className="w-full min-w-[620px]">
+            <thead>
+              <tr className="border-b border-zinc-800 bg-zinc-900">
+                <th className="py-2 px-2 w-8" />
+                <SortTh label="Team" col="team" className="text-left" />
+                <SortTh label="Scouted" col="scouted" className="text-right" />
+                <SortTh label="Avg Auto" col="avgAuto" className="text-right" />
+                <SortTh label="Avg Teleop" col="avgTeleop" className="text-right" />
+                <th className="py-2 px-3 text-xs font-medium text-zinc-500 text-left whitespace-nowrap">Endgame</th>
+                <SortTh label="Avg Rating" col="avgRating" className="text-right" />
+                <SortTh label="nOPR" col="nopr" className="text-right" />
+                <th className="py-2 px-3 text-xs font-medium text-zinc-500 text-left">Latest Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map(row => {
+                const key = String(row.teamNumber)
+                const isA = compareTeams[0] === key
+                const isB = compareTeams[1] === key
+                return (
+                  <tr
+                    key={row.teamNumber}
+                    className={[
+                      'border-b border-zinc-800 hover:bg-zinc-900/60 transition-colors',
+                      isA || isB ? 'bg-zinc-800/40' : '',
+                    ].join(' ')}
+                  >
+                    <td className="py-2.5 px-2 w-8 text-center">
+                      <button
+                        onClick={() => toggleCompare(key)}
+                        aria-label={isA ? 'Remove A from compare' : isB ? 'Remove B from compare' : 'Add to compare'}
+                        className={[
+                          'w-5 h-5 rounded text-[10px] font-bold border transition-colors',
+                          isA
+                            ? 'bg-sky-500/20 border-sky-500/40 text-sky-300'
+                            : isB
+                            ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                            : 'border-zinc-700 text-zinc-700 hover:border-zinc-500 hover:text-zinc-500',
+                        ].join(' ')}
+                      >
+                        {isA ? 'A' : isB ? 'B' : '+'}
+                      </button>
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <Link
+                        href={`/events/${season}/${eventCode}/teams/${row.teamNumber}`}
+                        className="text-xs font-bold text-sky-400 hover:underline block"
+                      >
+                        {row.teamNumber}
+                      </Link>
+                      <span className="text-[10px] text-zinc-600 truncate max-w-[120px] block">{row.teamName}</span>
+                    </td>
+                    <td className="py-2.5 px-3 text-xs text-right font-mono text-zinc-400">
+                      {row.scouted > 0 ? row.scouted : <span className="text-zinc-700">0</span>}
+                    </td>
+                    <td className="py-2.5 px-3 text-xs text-right">
+                      <Rating value={row.avgAuto} />
+                    </td>
+                    <td className="py-2.5 px-3 text-xs text-right">
+                      <Rating value={row.avgTeleop} />
+                    </td>
+                    <td className="py-2.5 px-3 text-xs text-zinc-400">
+                      {row.topEndgame || <span className="text-zinc-700">—</span>}
+                    </td>
+                    <td className="py-2.5 px-3 text-xs text-right">
+                      <Rating value={row.avgRating} />
+                    </td>
+                    <td className="py-2.5 px-3 text-xs text-right font-mono text-zinc-400">
+                      {row.nopr !== null ? row.nopr.toFixed(1) : <span className="text-zinc-700">—</span>}
+                    </td>
+                    <td className="py-2.5 px-3 text-xs text-zinc-500 max-w-[200px]">
+                      {row.latestNote ? (
+                        <span className="truncate block" title={row.latestNote}>
+                          {row.latestNote.length > 60 ? row.latestNote.slice(0, 60) + '…' : row.latestNote}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-700">—</span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+              {sorted.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="py-12 text-center text-zinc-600 text-xs">No teams found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {compareTeams.length === 1 && (
+          <p className="text-xs text-zinc-600 mt-2 pl-1">Select one more team to compare.</p>
+        )}
+      </div>
+
+      {showPanel && (
+        <div className="mt-4 lg:mt-0 lg:w-72 shrink-0">
+          <InlineCompare
+            rowA={compareRowA}
+            rowB={compareRowB}
+            rankData={rankData}
+            opr={opr}
+            season={season}
+            eventCode={eventCode}
+            onClear={() => setCompareTeams([])}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -397,7 +653,7 @@ export default function ScoutPage({
   if (!schedule.length) return <p className="text-zinc-500 text-sm py-12 text-center">No matches scheduled yet.</p>
 
   return (
-    <div className="max-w-4xl">
+    <div className={view === 'board' ? '' : 'max-w-4xl'}>
       {/* View toggle */}
       <div className="flex gap-1 mb-6 bg-zinc-900 border border-zinc-800 rounded-lg p-1 w-fit">
         <button
