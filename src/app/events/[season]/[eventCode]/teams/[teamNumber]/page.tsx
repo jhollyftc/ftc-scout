@@ -128,8 +128,8 @@ export default function TeamProfilePage({
           {/* OPR stats */}
           {teamOpr && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <Stat label="OPR" value={teamOpr.total.toFixed(1)} accent />
-              <Stat label="nOPR" value={teamOpr.nopr.toFixed(1)} />
+              <Stat label="nOPR" value={teamOpr.nopr.toFixed(1)} accent />
+              <Stat label="OPR" value={teamOpr.total.toFixed(1)} />
               <Stat label="Auto OPR" value={teamOpr.auto.toFixed(1)} />
               <Stat label="Teleop OPR" value={teamOpr.teleop.toFixed(1)} />
             </div>
