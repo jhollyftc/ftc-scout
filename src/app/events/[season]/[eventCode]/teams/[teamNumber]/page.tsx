@@ -799,7 +799,7 @@ function RobotPhoto({
           <div>
             <p className="text-[10px] text-zinc-600 mb-1">Earlier this season</p>
             <div className="flex gap-1.5 overflow-x-auto pb-1">
-              {pastPhotos.map(h => (
+              {[...pastPhotos].reverse().map(h => (
                 <button
                   key={h.eventCode}
                   onClick={() => setLightboxUrl(h.url)}
