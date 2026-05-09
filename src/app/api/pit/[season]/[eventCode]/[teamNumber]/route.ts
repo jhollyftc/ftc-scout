@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   await put(
     `pit/${season}/${eventCode}/${teamNumber}.json`,
     JSON.stringify(data),
-    { access: 'public', addRandomSuffix: false, contentType: 'application/json' }
+    { access: 'public', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' }
   )
   return Response.json({ ok: true })
 }
