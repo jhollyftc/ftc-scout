@@ -5,9 +5,9 @@ import Link from 'next/link'
 import useSWR from 'swr'
 import { ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react'
 import { useScoutMode } from '@/lib/scout-mode'
+import { calculateOPR } from '@/lib/opr'
 import type { HybridScheduleResponse, HybridMatch } from '@/lib/ftc-client'
 import type { MatchScoutEntry } from '@/app/api/match-scout/[season]/[eventCode]/[matchNumber]/[teamNumber]/route'
-import type { PitScoutingData } from '@/app/api/pit/[season]/[eventCode]/[teamNumber]/route'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
@@ -156,7 +156,9 @@ function TeamScoutCard({
   )
 }
 
-type BoardSortKey = 'team' | 'avgAuto' | 'avgTeleop' | 'avgRating' | 'scouted'
+type BoardSortKey = 'team' | 'avgAuto' | 'avgTeleop' | 'avgRating' | 'nopr' | 'scouted'
+
+interface EventNote { id: string; text: string; timestamp: string }
 
 function ScoutBoard({
   season,
@@ -171,10 +173,12 @@ function ScoutBoard({
     `/api/match-scout/${season}/${eventCode}`,
     fetcher
   )
-  const { data: allPitData } = useSWR<Record<string, PitScoutingData>>(
-    `/api/pit/${season}/${eventCode}`,
+  const { data: allNotes } = useSWR<Record<string, EventNote[]>>(
+    `/api/notes/${season}/${eventCode}`,
     fetcher
   )
+
+  const opr = useMemo(() => calculateOPR(schedule), [schedule])
 
   const [sortKey, setSortKey] = useState<BoardSortKey>('avgRating')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -206,7 +210,6 @@ function ScoutBoard({
     return teams.map(team => {
       const key = String(team.teamNumber)
       const entries = allMatchScout?.[key] ?? []
-      const pit = allPitData?.[key] ?? null
 
       const autoRatings = entries.map(e => e.autoRating).filter((r): r is number => r !== null)
       const teleopRatings = entries.map(e => e.teleopRating).filter((r): r is number => r !== null)
@@ -230,23 +233,26 @@ function ScoutBoard({
       }
       const topEndgame = Object.entries(endgameCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
 
-      const latestNote = entries
-        .filter(e => e.notes?.trim())
-        .sort((a, b) => new Date(b.scoutedAt).getTime() - new Date(a.scoutedAt).getTime())[0]?.notes ?? null
+      const nopr = opr[team.teamNumber]?.nopr ?? null
+
+      // Latest note from scout notes (team profile) — most recent timestamp
+      const teamNotes = allNotes?.[key] ?? []
+      const latestNote = [...teamNotes]
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]?.text ?? null
 
       return {
         teamNumber: team.teamNumber,
         teamName: team.teamName,
-        drivetrain: pit?.drivetrain ?? null,
         avgAuto,
         avgTeleop,
         avgRating,
+        nopr,
         topEndgame,
         scouted: entries.length,
         latestNote,
       }
     })
-  }, [teams, allMatchScout, allPitData])
+  }, [teams, allMatchScout, allNotes, opr])
 
   const sorted = useMemo(() => {
     return [...rows].sort((a, b) => {
@@ -255,6 +261,7 @@ function ScoutBoard({
         case 'team': av = a.teamNumber; bv = b.teamNumber; break
         case 'avgAuto': av = a.avgAuto ?? -1; bv = b.avgAuto ?? -1; break
         case 'avgTeleop': av = a.avgTeleop ?? -1; bv = b.avgTeleop ?? -1; break
+        case 'nopr': av = a.nopr ?? -1; bv = b.nopr ?? -1; break
         case 'scouted': av = a.scouted; bv = b.scouted; break
         case 'avgRating': default: av = a.avgRating ?? -1; bv = b.avgRating ?? -1; break
       }
@@ -289,16 +296,16 @@ function ScoutBoard({
 
   return (
     <div className="overflow-x-auto rounded-lg border border-zinc-800">
-      <table className="w-full min-w-[600px]">
+      <table className="w-full min-w-[580px]">
         <thead>
           <tr className="border-b border-zinc-800 bg-zinc-900">
             <SortTh label="Team" col="team" className="text-left" />
-            <th className="py-2 px-3 text-xs font-medium text-zinc-500 text-left whitespace-nowrap">Drivetrain</th>
+            <SortTh label="Scouted" col="scouted" className="text-right" />
             <SortTh label="Avg Auto" col="avgAuto" className="text-right" />
             <SortTh label="Avg Teleop" col="avgTeleop" className="text-right" />
             <th className="py-2 px-3 text-xs font-medium text-zinc-500 text-left whitespace-nowrap">Endgame</th>
-            <SortTh label="Scouted" col="scouted" className="text-right" />
             <SortTh label="Avg Rating" col="avgRating" className="text-right" />
+            <SortTh label="nOPR" col="nopr" className="text-right" />
             <th className="py-2 px-3 text-xs font-medium text-zinc-500 text-left">Latest Note</th>
           </tr>
         </thead>
@@ -314,8 +321,8 @@ function ScoutBoard({
                 </Link>
                 <span className="text-[10px] text-zinc-600 truncate max-w-[120px] block">{row.teamName}</span>
               </td>
-              <td className="py-2.5 px-3 text-xs text-zinc-400">
-                {row.drivetrain || <span className="text-zinc-700">—</span>}
+              <td className="py-2.5 px-3 text-xs text-right font-mono text-zinc-400">
+                {row.scouted > 0 ? row.scouted : <span className="text-zinc-700">0</span>}
               </td>
               <td className="py-2.5 px-3 text-xs text-right">
                 <Rating value={row.avgAuto} />
@@ -326,11 +333,11 @@ function ScoutBoard({
               <td className="py-2.5 px-3 text-xs text-zinc-400">
                 {row.topEndgame || <span className="text-zinc-700">—</span>}
               </td>
-              <td className="py-2.5 px-3 text-xs text-right font-mono text-zinc-400">
-                {row.scouted || <span className="text-zinc-700">0</span>}
-              </td>
               <td className="py-2.5 px-3 text-xs text-right">
                 <Rating value={row.avgRating} />
+              </td>
+              <td className="py-2.5 px-3 text-xs text-right font-mono text-zinc-400">
+                {row.nopr !== null ? row.nopr.toFixed(1) : <span className="text-zinc-700">—</span>}
               </td>
               <td className="py-2.5 px-3 text-xs text-zinc-500 max-w-[200px]">
                 {row.latestNote ? (
