@@ -10,6 +10,7 @@ const TABS = [
   { label: 'Schedule', suffix: '/schedule' },
   { label: 'Results', suffix: '/results' },
   { label: 'Rankings', suffix: '/rankings' },
+  { label: 'Compare', suffix: '/compare' },
   { label: 'Predict', suffix: '/predict' },
 ]
 
