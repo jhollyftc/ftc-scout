@@ -114,7 +114,7 @@ export default function TeamSeasonPage({
           <Link href="/" className="flex items-center gap-2 text-zinc-500 hover:text-zinc-200 transition-colors">
             <ArrowLeft className="w-4 h-4" />
           </Link>
-          <Image src="/logo.png" alt="Nova Pyra" width={28} height={28} className="drop-shadow-[0_0_6px_rgba(96,165,250,0.5)]" />
+          <Image src="/logo.png" alt="Nova Pyra" width={44} height={44} className="drop-shadow-[0_0_6px_rgba(96,165,250,0.5)]" />
           <span className="text-base font-bold tracking-tight">FTC Nova Pyra Scout</span>
           <span className="text-zinc-700 ml-1">·</span>
           <span className="text-sm text-zinc-400">{SEASONS[season] ?? season}</span>

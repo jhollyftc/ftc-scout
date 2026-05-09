@@ -32,7 +32,7 @@ export default async function EventLayout({
             >
               <ArrowLeft className="w-4 h-4" />
             </Link>
-            <Image src="/logo.png" alt="Nova Pyra" width={22} height={22} className="shrink-0 drop-shadow-[0_0_5px_rgba(96,165,250,0.5)]" />
+            <Image src="/logo.png" alt="Nova Pyra" width={36} height={36} className="shrink-0 drop-shadow-[0_0_5px_rgba(96,165,250,0.5)]" />
             <div className="min-w-0">
               <h1 className="font-semibold text-sm truncate leading-tight">{eventName}</h1>
               <p className="text-xs text-zinc-500 font-mono">
