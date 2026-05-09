@@ -8,6 +8,10 @@ const geist = Geist({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'FTC Nova Pyra Scout',
   description: 'FTC match scouting and OPR analysis',
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
