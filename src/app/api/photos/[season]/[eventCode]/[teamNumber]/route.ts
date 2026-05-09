@@ -30,8 +30,10 @@ export async function GET(
     })
     .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
 
+  const cache = { headers: { 'Cache-Control': 'private, max-age=120, stale-while-revalidate=300' } }
+
   if (!teamBlobs.length) {
-    return Response.json({ url: null, history: [] } satisfies PhotosResponse)
+    return Response.json({ url: null, history: [] } satisfies PhotosResponse, cache)
   }
 
   const history: PhotoEntry[] = teamBlobs.map(b => ({
@@ -44,5 +46,5 @@ export async function GET(
   // Only show a photo if one was taken at this specific event
   const primary = history.find(h => h.eventCode === eventCode) ?? null
 
-  return Response.json({ url: primary?.url ?? null, history } satisfies PhotosResponse)
+  return Response.json({ url: primary?.url ?? null, history } satisfies PhotosResponse, cache)
 }

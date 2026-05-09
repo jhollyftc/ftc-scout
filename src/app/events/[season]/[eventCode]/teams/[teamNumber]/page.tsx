@@ -14,6 +14,7 @@ import type { PitScoutingData } from '@/app/api/pit/[season]/[eventCode]/[teamNu
 import type { PhotosResponse } from '@/app/api/photos/[season]/[eventCode]/[teamNumber]/route'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
+const freshFetcher = (url: string) => fetch(url, { cache: 'reload' }).then(r => r.json())
 
 export default function TeamProfilePage({
   params,
@@ -105,7 +106,7 @@ export default function TeamProfilePage({
             season={season}
             eventCode={eventCode}
             teamNumber={teamNumber}
-            onUploaded={() => mutatePhoto()}
+            onUploaded={() => mutatePhoto(freshFetcher)}
             isScout={isScout}
             getEventName={(code) => eventsData?.events.find(e => e.code === code)?.name ?? code}
           />

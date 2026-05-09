@@ -11,7 +11,9 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   const { blobs } = await list({ prefix: `pit/${season}/${eventCode}/${teamNumber}.json` })
   if (!blobs.length) return Response.json(null)
   const res = await fetch(blobs[0].url)
-  return Response.json(await res.json())
+  return Response.json(await res.json(), {
+    headers: { 'Cache-Control': 'private, max-age=120, stale-while-revalidate=300' },
+  })
 }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
