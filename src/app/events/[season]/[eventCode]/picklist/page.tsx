@@ -119,6 +119,7 @@ interface TeamInfo {
   nopr?: number
   avgRating?: number | null
   hasPit?: boolean
+  notesCount: number
 }
 
 function ratingColor(rating: number): string {
@@ -138,6 +139,7 @@ function TeamCard({
   moveOpen,
   onToggleMove,
   onMove,
+  onShowNotes,
 }: {
   info: TeamInfo
   isDragging?: boolean
@@ -147,6 +149,7 @@ function TeamCard({
   moveOpen?: boolean
   onToggleMove?: () => void
   onMove?: (targetCol: PickColumn) => void
+  onShowNotes?: () => void
 }) {
   return (
     <div
@@ -179,11 +182,22 @@ function TeamCard({
                 )}
               </div>
               <p className="text-xs text-zinc-400 truncate leading-tight">{info.teamName}</p>
-              {info.hasPit !== undefined && (
-                <span className={`text-[10px] mt-0.5 inline-block ${info.hasPit ? 'text-green-400' : 'text-amber-500'}`}>
-                  {info.hasPit ? '● Pit ✓' : '○ Pit'}
-                </span>
-              )}
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                {info.hasPit !== undefined && (
+                  <span className={`text-[10px] ${info.hasPit ? 'text-green-400' : 'text-amber-500'}`}>
+                    {info.hasPit ? '● Pit ✓' : '○ Pit'}
+                  </span>
+                )}
+                {info.notesCount > 0 && onShowNotes && (
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); onShowNotes() }}
+                    className="text-[10px] text-sky-600 hover:text-sky-400 transition-colors"
+                  >
+                    ✎ {info.notesCount} {info.notesCount === 1 ? 'note' : 'notes'}
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-col items-end shrink-0 gap-0.5">
@@ -230,10 +244,12 @@ function SortableTeamCard({
   info,
   currentCol,
   onMove,
+  onShowNotes,
 }: {
   info: TeamInfo
   currentCol: PickColumn
   onMove: (teamNumber: number, targetCol: PickColumn) => void
+  onShowNotes: (teamNumber: number) => void
 }) {
   const [moveOpen, setMoveOpen] = useState(false)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -250,6 +266,7 @@ function SortableTeamCard({
         moveOpen={moveOpen}
         onToggleMove={() => setMoveOpen(s => !s)}
         onMove={targetCol => { onMove(info.teamNumber, targetCol); setMoveOpen(false) }}
+        onShowNotes={info.notesCount > 0 ? () => onShowNotes(info.teamNumber) : undefined}
       />
     </div>
   )
@@ -262,6 +279,7 @@ function KanbanColumn({
   teamNumbers,
   teamInfoMap,
   onMove,
+  onShowNotes,
   collapsed,
   onToggleCollapse,
 }: {
@@ -269,6 +287,7 @@ function KanbanColumn({
   teamNumbers: number[]
   teamInfoMap: Map<number, TeamInfo>
   onMove: (teamNumber: number, targetCol: PickColumn) => void
+  onShowNotes: (teamNumber: number) => void
   collapsed?: boolean
   onToggleCollapse?: () => void
 }) {
@@ -297,8 +316,8 @@ function KanbanColumn({
         <SortableContext items={teamNumbers} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-1.5 p-2 flex-1">
             {teamNumbers.map(tn => {
-              const info = teamInfoMap.get(tn) ?? { teamNumber: tn, teamName: String(tn) }
-              return <SortableTeamCard key={tn} info={info} currentCol={col} onMove={onMove} />
+              const info = teamInfoMap.get(tn) ?? { teamNumber: tn, teamName: String(tn), notesCount: 0 }
+              return <SortableTeamCard key={tn} info={info} currentCol={col} onMove={onMove} onShowNotes={onShowNotes} />
             })}
             {teamNumbers.length === 0 && (
               <p className="text-[11px] text-zinc-700 text-center py-8 italic">Drop here</p>
@@ -328,6 +347,7 @@ export default function PickListPage({
   })
   const [mobileTab, setMobileTab] = useState<PickColumn>('uncategorized')
   const [collapsedCols, setCollapsedCols] = useState<Set<PickColumn>>(new Set())
+  const [notesTeam, setNotesTeam] = useState<number | null>(null)
 
   const toggleCollapse = useCallback((col: PickColumn) => {
     setCollapsedCols(prev => {
@@ -405,6 +425,7 @@ export default function PickListPage({
         nopr: opr[teamNumber]?.nopr,
         avgRating: avgRat,
         hasPit: pitData ? String(teamNumber) in pitData : undefined,
+        notesCount: entries.filter(e => e.notes?.trim()).length,
       })
     }
     return m
@@ -661,6 +682,7 @@ export default function PickListPage({
             teamNumbers={columns[mobileTab]}
             teamInfoMap={teamInfoMap}
             onMove={moveTeam}
+            onShowNotes={setNotesTeam}
           />
           <DragOverlay>
             {activeInfo && (
@@ -688,6 +710,7 @@ export default function PickListPage({
               teamNumbers={columns[col]}
               teamInfoMap={teamInfoMap}
               onMove={moveTeam}
+              onShowNotes={setNotesTeam}
               collapsed={collapsedCols.has(col)}
               onToggleCollapse={() => toggleCollapse(col)}
             />
@@ -702,6 +725,48 @@ export default function PickListPage({
           )}
         </DragOverlay>
       </DndContext>
+
+      {/* ── Scout notes modal ── */}
+      {notesTeam !== null && (() => {
+        const entries = (allMatchScout?.[String(notesTeam)] ?? [])
+          .filter(e => e.notes?.trim())
+          .sort((a, b) => a.matchNumber - b.matchNumber)
+        const teamInfo = teamInfoMap.get(notesTeam)
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+            onClick={() => setNotesTeam(null)}
+          >
+            <div
+              className="bg-zinc-900 border border-zinc-700 rounded-xl w-full max-w-md mx-4 overflow-hidden shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+                <div>
+                  <span className="text-sm font-bold text-zinc-200">Team {notesTeam}</span>
+                  {teamInfo && <span className="text-xs text-zinc-500 ml-2">{teamInfo.teamName}</span>}
+                </div>
+                <button
+                  onClick={() => setNotesTeam(null)}
+                  className="text-zinc-600 hover:text-zinc-300 text-sm px-1 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="px-4 py-3 max-h-[60vh] overflow-y-auto flex flex-col gap-3">
+                {entries.length === 0 ? (
+                  <p className="text-zinc-600 text-sm text-center py-4">No match notes yet.</p>
+                ) : entries.map(e => (
+                  <div key={e.matchNumber} className="flex gap-3">
+                    <span className="text-[10px] font-mono text-sky-500 shrink-0 mt-0.5 w-8">Q{e.matchNumber}</span>
+                    <p className="text-xs text-zinc-300 leading-relaxed">{e.notes}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
