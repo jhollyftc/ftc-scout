@@ -8,6 +8,7 @@ import {
   MouseSensor,
   TouchSensor,
   closestCorners,
+  useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -22,30 +23,32 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Shield, Download, GripVertical } from 'lucide-react'
+import { Shield, Download } from 'lucide-react'
 import { useScoutMode } from '@/lib/scout-mode'
 import { calculateOPR } from '@/lib/opr'
 import type { HybridScheduleResponse, RankingsResponse } from '@/lib/ftc-client'
 import type { PickEntry, PickColumn } from '@/app/api/picklist/[season]/[eventCode]/[listId]/route'
+import type { MatchScoutEntryWithMatch } from '@/app/api/match-scout/[season]/[eventCode]/route'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 const COLUMN_IDS: PickColumn[] = ['tier1', 'tier2', 'dnp', 'uncategorized']
 
 const COLUMN_META: Record<PickColumn, { label: string; border: string; header: string }> = {
-  tier1:         { label: 'Tier 1',         border: 'border-sky-500/40',    header: 'bg-sky-500/10 text-sky-300' },
-  tier2:         { label: 'Tier 2',         border: 'border-purple-500/40', header: 'bg-purple-500/10 text-purple-300' },
-  dnp:           { label: 'Do Not Pick',    border: 'border-red-500/40',    header: 'bg-red-500/10 text-red-400' },
-  uncategorized: { label: 'Uncategorized',  border: 'border-zinc-700',      header: 'bg-zinc-800 text-zinc-400' },
+  tier1:         { label: 'Tier 1',        border: 'border-sky-500/40',    header: 'bg-sky-500/10 text-sky-300' },
+  tier2:         { label: 'Tier 2',        border: 'border-purple-500/40', header: 'bg-purple-500/10 text-purple-300' },
+  dnp:           { label: 'Do Not Pick',   border: 'border-red-500/40',    header: 'bg-red-500/10 text-red-400' },
+  uncategorized: { label: 'Uncategorized', border: 'border-zinc-700',      header: 'bg-zinc-800 text-zinc-400' },
+}
+
+function avg(vals: (number | null)[]): number | null {
+  const nums = vals.filter((v): v is number => v !== null)
+  return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null
 }
 
 // Merge all scouts' lists into a primary list by majority vote
-function mergeLists(
-  allLists: Record<string, PickEntry[]>,
-  teamNumbers: number[]
-): PickEntry[] {
+function mergeLists(allLists: Record<string, PickEntry[]>, teamNumbers: number[]): PickEntry[] {
   const TIE_PRIORITY: PickColumn[] = ['tier1', 'tier2', 'uncategorized', 'dnp']
-
   const result: PickEntry[] = []
 
   for (const teamNumber of teamNumbers) {
@@ -66,14 +69,13 @@ function mergeLists(
     }
 
     const avgOrder =
-      orders[winner] && orders[winner]!.length > 0
+      orders[winner]?.length
         ? orders[winner]!.reduce((a, b) => a + b, 0) / orders[winner]!.length
         : 999
 
     result.push({ teamNumber, column: winner, order: avgOrder })
   }
 
-  // Reassign contiguous order values per column
   const byCol: Partial<Record<PickColumn, PickEntry[]>> = {}
   for (const entry of result) {
     byCol[entry.column] = [...(byCol[entry.column] ?? []), entry]
@@ -101,10 +103,7 @@ function columnsToEntries(cols: Record<PickColumn, number[]>): PickEntry[] {
   return entries
 }
 
-function findColumnForTeam(
-  cols: Record<PickColumn, number[]>,
-  teamNumber: number
-): PickColumn | null {
+function findColumnForTeam(cols: Record<PickColumn, number[]>, teamNumber: number): PickColumn | null {
   for (const col of COLUMN_IDS) {
     if (cols[col].includes(teamNumber)) return col
   }
@@ -118,6 +117,7 @@ interface TeamInfo {
   teamName: string
   rank?: number
   nopr?: number
+  avgRating?: number | null
   hasPit?: boolean
 }
 
@@ -134,33 +134,41 @@ function TeamCard({
 }) {
   return (
     <div
-      className={`rounded-lg border bg-zinc-900 p-3 select-none transition-shadow ${
-        isDragging ? 'border-sky-500/60 shadow-lg shadow-sky-500/10 opacity-50' : 'border-zinc-700'
+      {...dragAttributes}
+      {...dragListeners}
+      className={`rounded-lg border bg-zinc-900 p-3 select-none cursor-grab active:cursor-grabbing touch-none transition-shadow ${
+        isDragging
+          ? 'border-sky-500/60 shadow-lg shadow-sky-500/10 opacity-50'
+          : 'border-zinc-700 hover:border-zinc-500'
       }`}
     >
-      <div className="flex items-center gap-2">
-        <span {...dragAttributes} {...dragListeners} className="text-zinc-600 touch-none cursor-grab active:cursor-grabbing shrink-0">
-          <GripVertical className="w-4 h-4" />
-        </span>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-1 mb-0.5">
-            <span className="font-mono font-bold text-sm text-zinc-100">{info.teamNumber}</span>
-            <div className="flex items-center gap-1.5 shrink-0">
-              {info.hasPit !== undefined && (
-                <span className={`text-[10px] ${info.hasPit ? 'text-green-400' : 'text-amber-500'}`}>
-                  {info.hasPit ? '●' : '○'}
-                </span>
-              )}
-              {info.rank != null && (
-                <span className="text-[10px] text-zinc-500 font-mono">#{info.rank}</span>
-              )}
-            </div>
-          </div>
-          <p className="text-[11px] text-zinc-400 truncate leading-tight">{info.teamName}</p>
-          {info.nopr != null && (
-            <p className="text-[10px] text-zinc-600 font-mono mt-0.5">{info.nopr.toFixed(1)} nOPR</p>
+      <div className="flex items-center justify-between gap-1 mb-1">
+        <span className="font-mono font-bold text-sm text-zinc-100">{info.teamNumber}</span>
+        <div className="flex items-center gap-2 shrink-0">
+          {info.hasPit !== undefined && (
+            <span className={`text-xs ${info.hasPit ? 'text-green-400' : 'text-amber-500'}`}>
+              {info.hasPit ? '●' : '○'}
+            </span>
+          )}
+          {info.rank != null && (
+            <span className="text-[10px] text-zinc-400 font-medium">Rank {info.rank}</span>
           )}
         </div>
+      </div>
+
+      <p className="text-[11px] text-zinc-400 truncate leading-tight mb-1.5">{info.teamName}</p>
+
+      <div className="flex items-center gap-3 flex-wrap">
+        {info.avgRating != null && (
+          <span className="text-[10px] text-zinc-300 font-mono">
+            ★ {info.avgRating.toFixed(1)}
+          </span>
+        )}
+        {info.nopr != null && (
+          <span className="text-[10px] text-zinc-300 font-mono">
+            {info.nopr.toFixed(1)} nOPR
+          </span>
+        )}
       </div>
     </div>
   )
@@ -170,12 +178,8 @@ function SortableTeamCard({ info }: { info: TeamInfo }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: info.teamNumber,
   })
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  }
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
       <TeamCard
         info={info}
         isDragging={isDragging}
@@ -198,15 +202,16 @@ function KanbanColumn({
   teamInfoMap: Map<number, TeamInfo>
 }) {
   const meta = COLUMN_META[col]
+  const { setNodeRef } = useDroppable({ id: col })
 
   return (
-    <div className={`rounded-xl border ${meta.border} flex flex-col min-h-[120px]`}>
+    <div className={`rounded-xl border ${meta.border} flex flex-col min-h-[140px]`}>
       <div className={`flex items-center justify-between px-3 py-2 rounded-t-xl ${meta.header}`}>
         <span className="text-xs font-semibold tracking-wide">{meta.label}</span>
         <span className="text-xs opacity-60">{teamNumbers.length}</span>
       </div>
       <SortableContext items={teamNumbers} strategy={verticalListSortingStrategy}>
-        <div className="flex flex-col gap-1.5 p-2 flex-1">
+        <div ref={setNodeRef} className="flex flex-col gap-1.5 p-2 flex-1 min-h-[60px]">
           {teamNumbers.map(tn => {
             const info = teamInfoMap.get(tn) ?? { teamNumber: tn, teamName: String(tn) }
             return <SortableTeamCard key={tn} info={info} />
@@ -247,7 +252,6 @@ export default function PickListPage({
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
   )
 
-  // Public data
   const { data: schedData } = useSWR<HybridScheduleResponse>(
     `/api/ftc/${season}/schedule/${eventCode}/qual/hybrid`,
     fetcher,
@@ -258,9 +262,13 @@ export default function PickListPage({
     fetcher,
     { refreshInterval: 60_000 }
   )
-  // Scout data
   const { data: pitData } = useSWR<Record<string, unknown>>(
     isScout ? `/api/pit/${season}/${eventCode}` : null,
+    fetcher,
+    { revalidateOnFocus: false, revalidateOnReconnect: false }
+  )
+  const { data: allMatchScout } = useSWR<Record<string, MatchScoutEntryWithMatch[]>>(
+    isScout ? `/api/match-scout/${season}/${eventCode}` : null,
     fetcher,
     { revalidateOnFocus: false, revalidateOnReconnect: false }
   )
@@ -273,7 +281,6 @@ export default function PickListPage({
   const schedule = schedData?.schedule ?? []
   const opr = useMemo(() => calculateOPR(schedule), [schedule])
 
-  // All teams sorted by number
   const allTeams = useMemo(() => {
     const seen = new Set<number>()
     const result: { teamNumber: number; teamName: string }[] = []
@@ -288,43 +295,43 @@ export default function PickListPage({
     return result.sort((a, b) => a.teamNumber - b.teamNumber)
   }, [schedule])
 
-  // Team info map
   const teamInfoMap = useMemo(() => {
     const m = new Map<number, TeamInfo>()
     for (const { teamNumber, teamName } of allTeams) {
       const rankInfo = rankData?.rankings.find(r => r.teamNumber === teamNumber)
+      const entries = allMatchScout?.[String(teamNumber)] ?? []
+      const autoAvg = avg(entries.map(e => e.autoRating))
+      const teleopAvg = avg(entries.map(e => e.teleopRating))
+      const avgRat = avg([autoAvg, teleopAvg])
       m.set(teamNumber, {
         teamNumber,
         teamName,
         rank: rankInfo?.rank,
         nopr: opr[teamNumber]?.nopr,
+        avgRating: avgRat,
         hasPit: pitData ? String(teamNumber) in pitData : undefined,
       })
     }
     return m
-  }, [allTeams, rankData, opr, pitData])
+  }, [allTeams, rankData, opr, pitData, allMatchScout])
 
-  // Initialize columns from saved list (or default to all uncategorized)
+  // Initialize columns from saved list (or default all to uncategorized)
   useEffect(() => {
     if (!allTeams.length) return
     if (initialized.current && savedList !== undefined) return
 
     if (savedList && savedList.length > 0) {
-      // Validate: add any teams not in saved list to uncategorized
       const savedNums = new Set(savedList.map(e => e.teamNumber))
       const missing = allTeams
         .filter(t => !savedNums.has(t.teamNumber))
         .map((t, i) => ({ teamNumber: t.teamNumber, column: 'uncategorized' as PickColumn, order: savedList.length + i }))
-      const fullList = [...savedList, ...missing]
-      setColumns(entriesToColumns(fullList))
+      setColumns(entriesToColumns([...savedList, ...missing]))
     } else if (savedList === null && allTeams.length > 0) {
-      // First load — put everything in uncategorized
       const initial: Record<PickColumn, number[]> = {
         tier1: [], tier2: [], dnp: [],
         uncategorized: allTeams.map(t => t.teamNumber),
       }
       setColumns(initial)
-      // Auto-save initial state
       if (listId) {
         const entries = columnsToEntries(initial)
         fetch(`/api/picklist/${season}/${eventCode}/${listId}`, {
@@ -338,12 +345,8 @@ export default function PickListPage({
     initialized.current = true
   }, [savedList, allTeams, listId, season, eventCode, mutateList])
 
-  // Reset initialization when listId changes (switching personal/primary)
-  useEffect(() => {
-    initialized.current = false
-  }, [listId])
+  useEffect(() => { initialized.current = false }, [listId])
 
-  // Debounced save
   const scheduleSave = useCallback(
     (newCols: Record<PickColumn, number[]>) => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
@@ -406,10 +409,8 @@ export default function PickListPage({
     const activeNum = active.id as number
     const overId = over.id as UniqueIdentifier
     const activeCol = findColumnForTeam(columns, activeNum)
-
     if (!activeCol) return
 
-    // Reorder within same column
     if (!COLUMN_IDS.includes(overId as PickColumn)) {
       const overNum = overId as number
       const overCol = findColumnForTeam(columns, overNum)
@@ -418,8 +419,7 @@ export default function PickListPage({
         const oldIdx = items.indexOf(activeNum)
         const newIdx = items.indexOf(overNum)
         if (oldIdx !== newIdx) {
-          const reordered = arrayMove(items, oldIdx, newIdx)
-          const newCols = { ...columns, [activeCol]: reordered }
+          const newCols = { ...columns, [activeCol]: arrayMove(items, oldIdx, newIdx) }
           setColumns(newCols)
           scheduleSave(newCols)
           return
@@ -440,12 +440,10 @@ export default function PickListPage({
         `/api/picklist/${season}/${eventCode}`
       ).then(r => r.json())
 
-      // Exclude primary from merge source
-      const scoutLists: Record<string, PickEntry[]> = Object.fromEntries(
+      const scoutLists = Object.fromEntries(
         Object.entries(allLists).filter(([k]) => k !== '_primary')
       )
-
-      if (Object.keys(scoutLists).length === 0) return
+      if (!Object.keys(scoutLists).length) return
 
       const merged = mergeLists(scoutLists, allTeams.map(t => t.teamNumber))
       const newCols = entriesToColumns(merged)
@@ -486,9 +484,7 @@ export default function PickListPage({
                 key={v}
                 onClick={() => setView(v)}
                 className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                  view === v
-                    ? 'bg-zinc-700 text-zinc-100'
-                    : 'text-zinc-500 hover:text-zinc-300'
+                  view === v ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
                 {v === 'personal' ? 'My List' : 'Primary'}
@@ -508,9 +504,7 @@ export default function PickListPage({
           </button>
         )}
 
-        <span className="ml-auto text-[11px] text-zinc-600">
-          {saving ? 'Saving…' : ''}
-        </span>
+        <span className="ml-auto text-[11px] text-zinc-600">{saving ? 'Saving…' : ''}</span>
       </div>
 
       {/* Board */}
