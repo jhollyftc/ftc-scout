@@ -6,5 +6,5 @@ export default async function EventPage({
   params: Promise<{ season: string; eventCode: string }>
 }) {
   const { season, eventCode } = await params
-  redirect(`/events/${season}/${eventCode}/schedule`)
+  redirect(`/events/${season}/${eventCode}/teams`)
 }

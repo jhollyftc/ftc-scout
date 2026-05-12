@@ -188,6 +188,11 @@ export default function HomePage() {
               className="drop-shadow-[0_0_6px_rgba(96,165,250,0.5)] shrink-0"
             />
             <span className="text-base font-bold tracking-tight">FTC Nova Pyra Scout</span>
+            {isScout && scoutName && (
+              <span className="hidden sm:block text-sm text-zinc-400 ml-1">
+                Hey, <span className="text-green-400 font-medium">{scoutName}</span>!
+              </span>
+            )}
           </div>
 
           {/* Scout mode */}
