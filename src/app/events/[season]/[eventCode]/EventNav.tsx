@@ -17,6 +17,7 @@ const TABS = [
 
 const SCOUT_TABS = [
   { label: 'Scout', suffix: '/scout' },
+  { label: 'Pick List', suffix: '/picklist' },
 ]
 
 export default function EventNav({
