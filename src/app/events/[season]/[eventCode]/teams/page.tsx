@@ -87,15 +87,7 @@ export default function TeamsPage({
     )
   }
 
-  const pitLoaded = !!allPitData
-  const matchLoaded = !!allMatchScout
-
-  // scout summary counts
-  const pitCount = isScout && pitLoaded ? Object.keys(allPitData!).length : null
-  const scoutedCount =
-    isScout && matchLoaded
-      ? Object.values(allMatchScout!).filter(e => e.length > 0).length
-      : null
+  const pitCount = isScout && allPitData ? Object.keys(allPitData).length : null
 
   return (
     <div className="max-w-2xl">
@@ -105,12 +97,6 @@ export default function TeamsPage({
           <span className="flex items-center gap-1">
             <Shield className="w-3 h-3 text-green-700" />
             {pitCount}/{teams.length} pit scouted
-          </span>
-        )}
-        {scoutedCount !== null && (
-          <span className="flex items-center gap-1">
-            <Shield className="w-3 h-3 text-green-700" />
-            {scoutedCount}/{teams.length} match scouted
           </span>
         )}
       </div>
@@ -150,15 +136,9 @@ export default function TeamsPage({
 
               <p className="flex-1 min-w-0 text-xs text-zinc-400 truncate">{teamName}</p>
 
-              {rankInfo ? (
-                <span className="text-xs text-zinc-500 font-mono shrink-0">#{rankInfo.rank}</span>
-              ) : (
-                <span className="text-xs text-zinc-700 font-mono shrink-0">—</span>
-              )}
-
-              {isScout && (
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {hasPit !== undefined && (
+              {isScout && (allPitData !== undefined || allMatchScout !== undefined) && (
+                <div className="flex items-center gap-1.5 shrink-0 w-[84px] justify-end">
+                  {allPitData !== undefined && (
                     <span
                       className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
                         hasPit
@@ -166,11 +146,17 @@ export default function TeamsPage({
                           : 'bg-zinc-800 text-zinc-600'
                       }`}
                     >
-                      Pit{hasPit ? ' ✓' : ''}
+                      {hasPit ? 'Pit ✓' : 'Pit'}
                     </span>
                   )}
-                  {entries.length > 0 && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-sky-900/30 text-sky-400 font-medium flex items-center gap-0.5">
+                  {allMatchScout !== undefined && (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5 ${
+                        entries.length > 0
+                          ? 'bg-sky-900/30 text-sky-400'
+                          : 'text-zinc-700'
+                      }`}
+                    >
                       <Shield className="w-2.5 h-2.5" />
                       {entries.length}
                     </span>

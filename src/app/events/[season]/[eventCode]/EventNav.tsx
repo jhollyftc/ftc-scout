@@ -7,10 +7,10 @@ import { Shield } from 'lucide-react'
 import { useScoutMode } from '@/lib/scout-mode'
 
 const TABS = [
+  { label: 'Teams', suffix: '/teams' },
   { label: 'Schedule', suffix: '/schedule' },
   { label: 'Results', suffix: '/results' },
   { label: 'Rankings', suffix: '/rankings' },
-  { label: 'Teams', suffix: '/teams' },
   { label: 'Compare', suffix: '/compare' },
   { label: 'Predict', suffix: '/predict' },
 ]
