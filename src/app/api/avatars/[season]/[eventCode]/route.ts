@@ -2,18 +2,11 @@ import type { NextRequest } from 'next/server'
 
 const BASE = process.env.FTC_API_BASE!
 
-function getAuth() {
-  return `Basic ${Buffer.from(`${process.env.FTC_API_USER}:${process.env.FTC_API_TOKEN}`).toString('base64')}`
-}
-
-async function ftcGet<T>(path: string, query?: Record<string, string>): Promise<T> {
-  const url = new URL(`${BASE}/${path}`)
-  if (query) Object.entries(query).forEach(([k, v]) => url.searchParams.set(k, v))
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: getAuth(), Accept: 'application/json' },
-  })
-  if (!res.ok) throw new Error(`FTC ${res.status}: ${path}`)
-  return res.json()
+function authHeaders() {
+  return {
+    Authorization: `Basic ${Buffer.from(`${process.env.FTC_API_USER}:${process.env.FTC_API_TOKEN}`).toString('base64')}`,
+    Accept: 'application/json',
+  }
 }
 
 type Ctx = { params: Promise<{ season: string; eventCode: string }> }
@@ -21,31 +14,44 @@ type Ctx = { params: Promise<{ season: string; eventCode: string }> }
 export async function GET(_req: NextRequest, ctx: Ctx) {
   const { season, eventCode } = await ctx.params
 
-  // Get teams registered at this event (eventCode filter works on /teams)
-  const teamsRes = await ftcGet<{ teams: { teamNumber: number }[]; teamCountTotal: number }>(
-    `${season}/teams`,
-    { eventCode, pageSize: '200' }
-  )
-  const teamNumbers = teamsRes.teams.map(t => t.teamNumber)
+  // Step 1: get team numbers for this event
+  // Note: no pageSize param — use default pagination (FTC events rarely exceed 25 teams)
+  let teamNumbers: number[] = []
+  try {
+    const url = new URL(`${BASE}/${season}/teams`)
+    url.searchParams.set('eventCode', eventCode)
+    const res = await fetch(url.toString(), { headers: authHeaders() })
+    if (res.ok) {
+      const json = await res.json()
+      teamNumbers = (json.teams ?? []).map((t: { teamNumber: number }) => t.teamNumber)
+    }
+  } catch {}
 
-  // Fetch each team's avatar in parallel (teamNumber filter works on /avatars)
-  const entries = await Promise.allSettled(
+  if (!teamNumbers.length) {
+    return Response.json({})
+  }
+
+  // Step 2: fetch avatar for each team in parallel
+  // FTC API supports ?teamNumber filter on the avatars list endpoint.
+  // Also handle the direct single-team response format just in case.
+  const result: Record<string, string> = {}
+  await Promise.allSettled(
     teamNumbers.map(async n => {
-      const res = await ftcGet<{ teams: { teamNumber: number; encodedAvatar: string | null }[] }>(
-        `${season}/avatars`,
-        { teamNumber: String(n) }
-      )
-      const encoded = res.teams[0]?.encodedAvatar ?? null
-      return [n, encoded] as [number, string | null]
+      try {
+        const url = new URL(`${BASE}/${season}/avatars`)
+        url.searchParams.set('teamNumber', String(n))
+        const res = await fetch(url.toString(), { headers: authHeaders() })
+        if (!res.ok) return
+        const json = await res.json()
+        // List format: { teams: [{ teamNumber, encodedAvatar }] }
+        // Direct format: { teamNumber, encodedAvatar }
+        const encoded: string | null =
+          json.teams?.[0]?.encodedAvatar ??
+          (typeof json.encodedAvatar === 'string' ? json.encodedAvatar : null)
+        if (encoded) result[String(n)] = encoded
+      } catch {}
     })
   )
-
-  const result: Record<number, string> = {}
-  for (const r of entries) {
-    if (r.status === 'fulfilled' && r.value[1]) {
-      result[r.value[0]] = r.value[1]
-    }
-  }
 
   return Response.json(result, {
     headers: { 'Cache-Control': 'public, max-age=3600, stale-while-revalidate=7200' },
