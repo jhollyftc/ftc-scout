@@ -53,6 +53,7 @@ function TeamScoutCard({
   color: 'red' | 'blue'
   endgameOptions: string[]
 }) {
+  const { scoutName } = useScoutMode()
   const { data: saved, mutate } = useSWR<MatchScoutEntry | null>(
     `/api/match-scout/${season}/${eventCode}/${matchNumber}/${team.teamNumber}`,
     fetcher,
@@ -72,7 +73,11 @@ function TeamScoutCard({
 
   async function handleSave() {
     setSaving(true)
-    const entry: MatchScoutEntry = { ...form, scoutedAt: new Date().toISOString() }
+    const entry: MatchScoutEntry = {
+      ...form,
+      scoutedAt: new Date().toISOString(),
+      scoutedBy: scoutName ?? 'unknown',
+    }
     mutate(entry, { revalidate: false })
     try {
       await fetch(`/api/match-scout/${season}/${eventCode}/${matchNumber}/${team.teamNumber}`, {
@@ -1016,7 +1021,7 @@ export default function ScoutPage({
     return (
       <div className="py-16 text-center">
         <p className="text-zinc-500 text-sm">Scout mode required.</p>
-        <p className="text-zinc-600 text-xs mt-1">Enter your PIN on the main page to unlock.</p>
+        <p className="text-zinc-600 text-xs mt-1">Log in on the main page to unlock.</p>
       </div>
     )
   }

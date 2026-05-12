@@ -7,6 +7,7 @@ export interface MatchScoutEntry {
   endgame: string
   notes: string
   scoutedAt: string
+  scoutedBy?: string
 }
 
 type Ctx = { params: Promise<{ season: string; eventCode: string; matchNumber: string; teamNumber: string }> }

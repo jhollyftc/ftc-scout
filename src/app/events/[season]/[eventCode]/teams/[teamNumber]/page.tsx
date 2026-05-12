@@ -323,6 +323,7 @@ function PitScoutingForm({
 }) {
   const config = getSeasonConfig(season)
   const { pitFields } = config
+  const { scoutName } = useScoutMode()
 
   function emptyForm(): PitScoutingData {
     return Object.fromEntries(pitFields.map(f => [f.key, f.type === 'rating' ? null : '']))
@@ -346,7 +347,7 @@ function PitScoutingForm({
       await fetch(`/api/pit/${season}/${eventCode}/${teamNumber}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, _scoutedBy: scoutName ?? 'unknown' }),
       })
       onSave(form)
       setSavedOk(true)
@@ -356,7 +357,11 @@ function PitScoutingForm({
     }
   }
 
-  const hasSavedData = saved && Object.values(saved).some(v => v !== null && v !== '')
+  const hasSavedData =
+    saved &&
+    Object.entries(saved)
+      .filter(([k]) => !k.startsWith('_'))
+      .some(([, v]) => v !== null && v !== '')
 
   const selectClass = 'w-full h-8 px-2 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 focus:outline-none focus:border-sky-500 appearance-none'
   const textareaClass = 'w-full px-2.5 py-2 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-sky-500 resize-none'

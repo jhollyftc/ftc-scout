@@ -2,39 +2,76 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 
-const SCOUT_PIN = process.env.NEXT_PUBLIC_SCOUT_PIN ?? '2619'
-const SESSION_KEY = 'scout_mode'
+const SESSION_KEY = 'scout_user'
+
+interface ScoutUser {
+  name: string
+  isAdmin: boolean
+}
 
 interface ScoutModeCtx {
   isScout: boolean
-  unlock: (pin: string) => boolean
-  lock: () => void
+  isAdmin: boolean
+  scoutName: string | null
+  login: (name: string, pin: string) => Promise<boolean>
+  logout: () => void
 }
 
-const Ctx = createContext<ScoutModeCtx>({ isScout: false, unlock: () => false, lock: () => {} })
+const Ctx = createContext<ScoutModeCtx>({
+  isScout: false,
+  isAdmin: false,
+  scoutName: null,
+  login: async () => false,
+  logout: () => {},
+})
 
 export function ScoutModeProvider({ children }: { children: ReactNode }) {
-  const [isScout, setIsScout] = useState(false)
+  const [user, setUser] = useState<ScoutUser | null>(null)
 
   useEffect(() => {
-    setIsScout(sessionStorage.getItem(SESSION_KEY) === '1')
+    sessionStorage.removeItem('scout_mode')
+    const stored = sessionStorage.getItem(SESSION_KEY)
+    if (stored) {
+      try {
+        setUser(JSON.parse(stored))
+      } catch {
+        sessionStorage.removeItem(SESSION_KEY)
+      }
+    }
   }, [])
 
-  function unlock(pin: string): boolean {
-    if (pin === SCOUT_PIN) {
-      sessionStorage.setItem(SESSION_KEY, '1')
-      setIsScout(true)
-      return true
-    }
-    return false
+  async function login(name: string, pin: string): Promise<boolean> {
+    const res = await fetch('/api/auth/scout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, pin }),
+    })
+    if (!res.ok) return false
+    const { name: returnedName, isAdmin } = await res.json()
+    const scout: ScoutUser = { name: returnedName, isAdmin }
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(scout))
+    setUser(scout)
+    return true
   }
 
-  function lock() {
+  function logout() {
     sessionStorage.removeItem(SESSION_KEY)
-    setIsScout(false)
+    setUser(null)
   }
 
-  return <Ctx.Provider value={{ isScout, unlock, lock }}>{children}</Ctx.Provider>
+  return (
+    <Ctx.Provider
+      value={{
+        isScout: user !== null,
+        isAdmin: user?.isAdmin ?? false,
+        scoutName: user?.name ?? null,
+        login,
+        logout,
+      }}
+    >
+      {children}
+    </Ctx.Provider>
+  )
 }
 
 export function useScoutMode() {

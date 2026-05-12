@@ -29,7 +29,7 @@ export default function EventNav({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const { isScout } = useScoutMode()
+  const { isScout, isAdmin } = useScoutMode()
   const base = `/events/${season}/${eventCode}`
   const highlightTeam = searchParams.get('team') ?? ''
 
@@ -58,6 +58,9 @@ export default function EventNav({
         <span className="flex items-center gap-1 text-[10px] text-green-400 font-medium shrink-0">
           <Shield className="w-3 h-3" /> Scout
         </span>
+      )}
+      {isAdmin && (
+        <span className="text-[10px] text-amber-400 font-medium shrink-0">Admin</span>
       )}
       <nav className="flex gap-1 overflow-x-auto">
         {[...TABS, ...(isScout ? SCOUT_TABS : [])].map(tab => {

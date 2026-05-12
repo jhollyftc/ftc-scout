@@ -103,10 +103,13 @@ export default function HomePage() {
   const [teamInput, setTeamInput] = useState('')
   const [searchActive, setSearchActive] = useState(false)
   const [scoutOpen, setScoutOpen] = useState(false)
+  const [selectedName, setSelectedName] = useState('')
   const [pinInput, setPinInput] = useState('')
   const [pinError, setPinError] = useState(false)
   const router = useRouter()
-  const { isScout, unlock, lock } = useScoutMode()
+  const { isScout, isAdmin, scoutName, login, logout } = useScoutMode()
+
+  const { data: scoutsData } = useSWR<{ names: string[] }>('/api/auth/scouts', fetcher)
 
   // Nova Pyra's events — always fetched, small payload
   const { data: novaData } = useSWR<EventsResponse>(
@@ -126,10 +129,11 @@ export default function HomePage() {
     if (num) router.push(`/teams/${season}/${num}`)
   }
 
-  function handleScoutLogin(e: React.FormEvent) {
+  async function handleScoutLogin(e: React.FormEvent) {
     e.preventDefault()
-    const ok = unlock(pinInput)
-    if (ok) { setScoutOpen(false); setPinInput(''); setPinError(false) }
+    if (!selectedName) return
+    const ok = await login(selectedName, pinInput)
+    if (ok) { setScoutOpen(false); setPinInput(''); setSelectedName(''); setPinError(false) }
     else { setPinError(true); setPinInput('') }
   }
 
@@ -188,19 +192,41 @@ export default function HomePage() {
 
           {/* Scout mode */}
           {isScout ? (
-            <button onClick={lock} className="flex items-center gap-1.5 h-9 px-3 text-xs rounded-md border border-green-500/30 bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors shrink-0">
-              <Shield className="w-3.5 h-3.5" /> Scout Mode
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="flex items-center gap-1.5 h-9 px-3 text-xs rounded-md border border-green-500/30 bg-green-500/10 text-green-400">
+                <Shield className="w-3.5 h-3.5" /> {scoutName}
+              </span>
+              {isAdmin && (
+                <span className="flex items-center h-9 px-2 text-xs rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-400">
+                  Admin
+                </span>
+              )}
+              <button onClick={logout} className="text-zinc-500 hover:text-zinc-300 transition-colors px-1 h-9 flex items-center" aria-label="Log out">
+                <Lock className="w-3.5 h-3.5" />
+              </button>
+            </div>
           ) : scoutOpen ? (
             <form onSubmit={handleScoutLogin} className="flex items-center gap-1.5 shrink-0">
+              <select
+                value={selectedName}
+                onChange={e => { setSelectedName(e.target.value); setPinError(false) }}
+                className="h-9 px-2 text-sm rounded-md border border-zinc-700 bg-zinc-800 text-zinc-200 focus:outline-none focus:border-sky-500"
+              >
+                <option value="">— name —</option>
+                {(scoutsData?.names ?? []).map(n => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
               <input
                 type="password" placeholder="PIN" value={pinInput}
                 onChange={e => { setPinInput(e.target.value); setPinError(false) }}
                 autoFocus
-                className={`w-20 h-9 px-2 text-sm rounded-md border bg-zinc-800 text-zinc-200 placeholder-zinc-600 focus:outline-none ${pinError ? 'border-red-500' : 'border-zinc-700 focus:border-sky-500'}`}
+                className={`w-16 h-9 px-2 text-sm rounded-md border bg-zinc-800 text-zinc-200 placeholder-zinc-600 focus:outline-none ${pinError ? 'border-red-500' : 'border-zinc-700 focus:border-sky-500'}`}
               />
-              <button type="submit" className="h-9 px-3 text-xs rounded-md border border-zinc-700 bg-zinc-800 text-zinc-300 hover:border-zinc-500 transition-colors">Unlock</button>
-              <button type="button" onClick={() => { setScoutOpen(false); setPinError(false); setPinInput('') }} className="text-zinc-500 hover:text-zinc-300 px-1">✕</button>
+              <button type="submit" className="h-9 px-3 text-xs rounded-md border border-zinc-700 bg-zinc-800 text-zinc-300 hover:border-zinc-500 transition-colors">
+                Log in
+              </button>
+              <button type="button" onClick={() => { setScoutOpen(false); setPinError(false); setPinInput(''); setSelectedName('') }} className="text-zinc-500 hover:text-zinc-300 px-1">✕</button>
             </form>
           ) : (
             <button onClick={() => setScoutOpen(true)} className="flex items-center gap-1.5 h-9 px-3 text-xs rounded-md border border-zinc-700 bg-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 transition-colors shrink-0">
