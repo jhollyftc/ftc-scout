@@ -7,7 +7,8 @@ import {
   DragOverlay,
   MouseSensor,
   TouchSensor,
-  closestCorners,
+  pointerWithin,
+  rectIntersection,
   useDroppable,
   useSensor,
   useSensors,
@@ -205,19 +206,19 @@ function KanbanColumn({
   const { setNodeRef } = useDroppable({ id: col })
 
   return (
-    <div className={`rounded-xl border ${meta.border} flex flex-col min-h-[140px]`}>
+    <div ref={setNodeRef} className={`rounded-xl border ${meta.border} flex flex-col min-h-[220px]`}>
       <div className={`flex items-center justify-between px-3 py-2 rounded-t-xl ${meta.header}`}>
         <span className="text-xs font-semibold tracking-wide">{meta.label}</span>
         <span className="text-xs opacity-60">{teamNumbers.length}</span>
       </div>
       <SortableContext items={teamNumbers} strategy={verticalListSortingStrategy}>
-        <div ref={setNodeRef} className="flex flex-col gap-1.5 p-2 flex-1 min-h-[60px]">
+        <div className="flex flex-col gap-1.5 p-2 flex-1">
           {teamNumbers.map(tn => {
             const info = teamInfoMap.get(tn) ?? { teamNumber: tn, teamName: String(tn) }
             return <SortableTeamCard key={tn} info={info} />
           })}
           {teamNumbers.length === 0 && (
-            <p className="text-[11px] text-zinc-700 text-center py-4 italic">Drop here</p>
+            <p className="text-[11px] text-zinc-700 text-center py-8 italic">Drop here</p>
           )}
         </div>
       </SortableContext>
@@ -510,7 +511,10 @@ export default function PickListPage({
       {/* Board */}
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={args => {
+          const hits = pointerWithin(args)
+          return hits.length > 0 ? hits : rectIntersection(args)
+        }}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
