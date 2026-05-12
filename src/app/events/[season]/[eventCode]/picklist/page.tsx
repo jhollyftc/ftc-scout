@@ -122,6 +122,14 @@ interface TeamInfo {
   hasPit?: boolean
 }
 
+function ratingColor(rating: number): string {
+  if (rating >= 4.5) return 'text-emerald-400'
+  if (rating >= 3.5) return 'text-green-400'
+  if (rating >= 2.5) return 'text-yellow-400'
+  if (rating >= 1.5) return 'text-orange-400'
+  return 'text-red-400'
+}
+
 function TeamCard({
   info,
   isDragging,
@@ -143,33 +151,31 @@ function TeamCard({
           : 'border-zinc-700 hover:border-zinc-500'
       }`}
     >
-      <div className="flex items-center justify-between gap-1 mb-1">
-        <span className="font-mono font-bold text-sm text-zinc-100">{info.teamNumber}</span>
-        <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="font-mono font-bold text-base text-zinc-100">{info.teamNumber}</span>
+            {info.avgRating != null && (
+              <span className={`text-sm font-semibold ${ratingColor(info.avgRating)}`}>
+                ★ {info.avgRating.toFixed(1)}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-zinc-400 truncate leading-tight">{info.teamName}</p>
           {info.hasPit !== undefined && (
-            <span className={`text-xs ${info.hasPit ? 'text-green-400' : 'text-amber-500'}`}>
-              {info.hasPit ? '●' : '○'}
+            <span className={`text-[10px] mt-1 inline-block ${info.hasPit ? 'text-green-400' : 'text-amber-500'}`}>
+              {info.hasPit ? '● Pit ✓' : '○ Pit'}
             </span>
           )}
+        </div>
+        <div className="flex flex-col items-end shrink-0 gap-0.5">
           {info.rank != null && (
-            <span className="text-[10px] text-zinc-400 font-medium">Rank {info.rank}</span>
+            <span className="text-xs text-zinc-300 font-medium">Rank {info.rank}</span>
+          )}
+          {info.nopr != null && (
+            <span className="text-xs text-zinc-300 font-mono">{info.nopr.toFixed(1)} nOPR</span>
           )}
         </div>
-      </div>
-
-      <p className="text-[11px] text-zinc-400 truncate leading-tight mb-1.5">{info.teamName}</p>
-
-      <div className="flex items-center gap-3 flex-wrap">
-        {info.avgRating != null && (
-          <span className="text-[10px] text-zinc-300 font-mono">
-            ★ {info.avgRating.toFixed(1)}
-          </span>
-        )}
-        {info.nopr != null && (
-          <span className="text-[10px] text-zinc-300 font-mono">
-            {info.nopr.toFixed(1)} nOPR
-          </span>
-        )}
       </div>
     </div>
   )
@@ -505,7 +511,7 @@ export default function PickListPage({
           </button>
         )}
 
-        <span className="ml-auto text-[11px] text-zinc-600">{saving ? 'Saving…' : ''}</span>
+        <span className={`ml-auto text-[11px] text-zinc-600 ${saving ? 'visible' : 'invisible'}`}>Saving…</span>
       </div>
 
       {/* Board */}
