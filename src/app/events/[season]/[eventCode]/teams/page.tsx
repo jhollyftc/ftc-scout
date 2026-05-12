@@ -11,6 +11,9 @@ import type { MatchScoutEntryWithMatch } from '@/app/api/match-scout/[season]/[e
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
+interface AvatarEntry { teamNumber: number; encodedAvatar: string | null }
+interface AvatarsResponse { teams: AvatarEntry[]; teamCountTotal: number }
+
 function avg(vals: (number | null)[]): number | null {
   const nums = vals.filter((v): v is number => v !== null)
   return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null
@@ -61,9 +64,22 @@ export default function TeamsPage({
     fetcher,
     { revalidateOnFocus: false, revalidateOnReconnect: false }
   )
+  const { data: avatarData } = useSWR<AvatarsResponse>(
+    `/api/ftc/${season}/avatars?eventCode=${eventCode}&pageSize=100`,
+    fetcher,
+    { revalidateOnFocus: false, revalidateOnReconnect: false }
+  )
 
   const schedule = schedData?.schedule ?? []
   const opr = useMemo(() => calculateOPR(schedule), [schedule])
+
+  const avatarMap = useMemo(() => {
+    const m = new Map<number, string>()
+    for (const a of avatarData?.teams ?? []) {
+      if (a.encodedAvatar) m.set(a.teamNumber, `data:image/png;base64,${a.encodedAvatar}`)
+    }
+    return m
+  }, [avatarData])
 
   const teams = useMemo(() => {
     const seen = new Set<number>()
@@ -133,6 +149,14 @@ export default function TeamsPage({
                 hasPit={hasPit}
                 latestNote={isScout ? latestNote(entries) : null}
               />
+
+              {avatarMap.get(teamNumber) && (
+                <img
+                  src={avatarMap.get(teamNumber)}
+                  alt=""
+                  className="w-7 h-7 rounded-full object-contain shrink-0 bg-zinc-800"
+                />
+              )}
 
               <p className="flex-1 min-w-0 text-xs text-zinc-400 truncate">{teamName}</p>
 
