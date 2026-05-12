@@ -11,8 +11,6 @@ import type { MatchScoutEntryWithMatch } from '@/app/api/match-scout/[season]/[e
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
-interface AvatarEntry { teamNumber: number; encodedAvatar: string | null }
-interface AvatarsResponse { teams: AvatarEntry[]; teamCountTotal: number }
 
 function avg(vals: (number | null)[]): number | null {
   const nums = vals.filter((v): v is number => v !== null)
@@ -64,8 +62,8 @@ export default function TeamsPage({
     fetcher,
     { revalidateOnFocus: false, revalidateOnReconnect: false }
   )
-  const { data: avatarData } = useSWR<AvatarsResponse>(
-    `/api/ftc/${season}/avatars?eventCode=${eventCode}&pageSize=100`,
+  const { data: avatarData } = useSWR<Record<string, string>>(
+    `/api/avatars/${season}/${eventCode}`,
     fetcher,
     { revalidateOnFocus: false, revalidateOnReconnect: false }
   )
@@ -75,8 +73,8 @@ export default function TeamsPage({
 
   const avatarMap = useMemo(() => {
     const m = new Map<number, string>()
-    for (const a of avatarData?.teams ?? []) {
-      if (a.encodedAvatar) m.set(a.teamNumber, `data:image/png;base64,${a.encodedAvatar}`)
+    for (const [num, b64] of Object.entries(avatarData ?? {})) {
+      m.set(Number(num), `data:image/png;base64,${b64}`)
     }
     return m
   }, [avatarData])
