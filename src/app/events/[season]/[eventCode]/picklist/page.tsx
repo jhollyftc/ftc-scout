@@ -24,7 +24,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Shield, Download, GripVertical } from 'lucide-react'
+import { Shield, Download, GripVertical, ChevronDown } from 'lucide-react'
 import { useScoutMode } from '@/lib/scout-mode'
 import { calculateOPR } from '@/lib/opr'
 import type { HybridScheduleResponse, RankingsResponse } from '@/lib/ftc-client'
@@ -262,32 +262,50 @@ function KanbanColumn({
   teamNumbers,
   teamInfoMap,
   onMove,
+  collapsed,
+  onToggleCollapse,
 }: {
   col: PickColumn
   teamNumbers: number[]
   teamInfoMap: Map<number, TeamInfo>
   onMove: (teamNumber: number, targetCol: PickColumn) => void
+  collapsed?: boolean
+  onToggleCollapse?: () => void
 }) {
   const meta = COLUMN_META[col]
   const { setNodeRef } = useDroppable({ id: col })
 
   return (
-    <div ref={setNodeRef} className={`rounded-xl border ${meta.border} flex flex-col min-h-[220px]`}>
-      <div className={`flex items-center justify-between px-3 py-2 rounded-t-xl ${meta.header}`}>
+    <div ref={setNodeRef} className={`rounded-xl border ${meta.border} flex flex-col ${collapsed ? '' : 'min-h-[220px]'}`}>
+      <div className={`flex items-center justify-between px-3 py-2 ${collapsed ? 'rounded-xl' : 'rounded-t-xl'} ${meta.header}`}>
         <span className="text-xs font-semibold tracking-wide">{meta.label}</span>
-        <span className="text-xs opacity-60">{teamNumbers.length}</span>
-      </div>
-      <SortableContext items={teamNumbers} strategy={verticalListSortingStrategy}>
-        <div className="flex flex-col gap-1.5 p-2 flex-1">
-          {teamNumbers.map(tn => {
-            const info = teamInfoMap.get(tn) ?? { teamNumber: tn, teamName: String(tn) }
-            return <SortableTeamCard key={tn} info={info} currentCol={col} onMove={onMove} />
-          })}
-          {teamNumbers.length === 0 && (
-            <p className="text-[11px] text-zinc-700 text-center py-8 italic">Drop here</p>
+        <div className="flex items-center gap-2">
+          <span className="text-xs opacity-60">{teamNumbers.length}</span>
+          {onToggleCollapse && (
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="hidden sm:flex items-center justify-center opacity-50 hover:opacity-100 transition-opacity"
+              aria-label={collapsed ? 'Expand column' : 'Collapse column'}
+            >
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${collapsed ? '' : 'rotate-180'}`} />
+            </button>
           )}
         </div>
-      </SortableContext>
+      </div>
+      {!collapsed && (
+        <SortableContext items={teamNumbers} strategy={verticalListSortingStrategy}>
+          <div className="flex flex-col gap-1.5 p-2 flex-1">
+            {teamNumbers.map(tn => {
+              const info = teamInfoMap.get(tn) ?? { teamNumber: tn, teamName: String(tn) }
+              return <SortableTeamCard key={tn} info={info} currentCol={col} onMove={onMove} />
+            })}
+            {teamNumbers.length === 0 && (
+              <p className="text-[11px] text-zinc-700 text-center py-8 italic">Drop here</p>
+            )}
+          </div>
+        </SortableContext>
+      )}
     </div>
   )
 }
@@ -309,6 +327,15 @@ export default function PickListPage({
     tier1: [], tier2: [], dnp: [], uncategorized: [],
   })
   const [mobileTab, setMobileTab] = useState<PickColumn>('uncategorized')
+  const [collapsedCols, setCollapsedCols] = useState<Set<PickColumn>>(new Set())
+
+  const toggleCollapse = useCallback((col: PickColumn) => {
+    setCollapsedCols(prev => {
+      const next = new Set(prev)
+      if (next.has(col)) next.delete(col); else next.add(col)
+      return next
+    })
+  }, [])
   const [activeId, setActiveId] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [importBusy, setImportBusy] = useState(false)
@@ -661,6 +688,8 @@ export default function PickListPage({
               teamNumbers={columns[col]}
               teamInfoMap={teamInfoMap}
               onMove={moveTeam}
+              collapsed={collapsedCols.has(col)}
+              onToggleCollapse={() => toggleCollapse(col)}
             />
           ))}
         </div>
