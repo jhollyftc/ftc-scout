@@ -13,6 +13,7 @@ import type { MatchScoutEntry } from '@/app/api/match-scout/[season]/[eventCode]
 import type { MatchScoutEntryWithMatch } from '@/app/api/match-scout/[season]/[eventCode]/route'
 import type { PickEntry, PickColumn } from '@/app/api/picklist/[season]/[eventCode]/[listId]/route'
 import type { PicklistVisibility } from '@/app/api/picklist/[season]/[eventCode]/visibility/route'
+import type { AlliancePick } from '@/app/api/alliance/[season]/[eventCode]/route'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
@@ -693,16 +694,10 @@ function ScoutBoard({
 
 // ── Pick List Alliance View ────────────────────────────────────────────────────
 
-const PICK_SECTIONS: {
-  col: PickColumn
-  label: string
-  border: string
-  header: string
-  dot: string
-}[] = [
-  { col: 'tier1', label: 'Tier 1',       border: 'border-sky-500/40',    header: 'bg-sky-500/10 text-sky-300',     dot: 'bg-sky-400' },
-  { col: 'tier2', label: 'Tier 2',       border: 'border-purple-500/40', header: 'bg-purple-500/10 text-purple-300', dot: 'bg-purple-400' },
-  { col: 'dnp',   label: 'Do Not Pick',  border: 'border-red-500/40',    header: 'bg-red-500/10 text-red-400',     dot: 'bg-red-400' },
+const PICK_SECTIONS: { col: PickColumn; label: string; border: string; header: string; dot: string }[] = [
+  { col: 'tier1', label: 'Tier 1',      border: 'border-sky-500/40',    header: 'bg-sky-500/10 text-sky-300',      dot: 'bg-sky-400' },
+  { col: 'tier2', label: 'Tier 2',      border: 'border-purple-500/40', header: 'bg-purple-500/10 text-purple-300', dot: 'bg-purple-400' },
+  { col: 'dnp',   label: 'Do Not Pick', border: 'border-red-500/40',    header: 'bg-red-500/10 text-red-400',      dot: 'bg-red-400' },
 ]
 
 function PickListView({
@@ -723,15 +718,14 @@ function PickListView({
   )
   const { data: visData, mutate: mutateVis } = useSWR<PicklistVisibility | null>(
     `/api/picklist/${season}/${eventCode}/visibility`,
-    fetcher
-  )
-  const { data: rankData } = useSWR<RankingsResponse>(
-    `/api/ftc/${season}/rankings/${eventCode}`,
     fetcher,
-    { refreshInterval: 30_000 }
+    { revalidateOnFocus: false, revalidateOnReconnect: false }
   )
-
-  const opr = useMemo(() => calculateOPR(schedule), [schedule])
+  const { data: savedStatuses } = useSWR<AlliancePick[] | null>(
+    `/api/alliance/${season}/${eventCode}`,
+    fetcher,
+    { revalidateOnFocus: false, revalidateOnReconnect: false }
+  )
 
   const teamNames = useMemo((): Record<number, string> => {
     const map: Record<number, string> = {}
@@ -749,17 +743,46 @@ function PickListView({
     }
   }, [pickList])
 
+  const [statuses, setStatuses] = useState<Record<number, AlliancePick['status']>>({})
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (!savedStatuses) return
+    const map: Record<number, AlliancePick['status']> = {}
+    for (const p of savedStatuses) map[p.teamNumber] = p.status
+    setStatuses(map)
+  }, [savedStatuses])
+
+  function setStatus(teamNumber: number, status: AlliancePick['status']) {
+    const next = { ...statuses, [teamNumber]: status }
+    setStatuses(next)
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      const payload: AlliancePick[] = Object.entries(next).map(([tn, s], i) => ({
+        teamNumber: Number(tn),
+        status: s,
+        priority: i,
+      }))
+      fetch(`/api/alliance/${season}/${eventCode}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+    }, 600)
+  }
+
   const visible = visData?.visible ?? false
 
   async function toggleVisibility() {
     const next = !visible
+    // Set optimistic state and do NOT revalidate after — blob has eventual
+    // consistency and an immediate refetch would return stale data.
     mutateVis({ visible: next }, false)
     await fetch(`/api/picklist/${season}/${eventCode}/visibility`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ visible: next }),
     })
-    mutateVis()
   }
 
   if (!isAdmin && !visible) {
@@ -809,15 +832,14 @@ function PickListView({
                 <div className={`px-3 py-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider ${header}`}>
                   <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
                   {label}
-                  <span className="font-normal opacity-60 ml-auto">{entries.length}</span>
                 </div>
                 {entries.map((entry, idx) => {
-                  const rank = rankData?.rankings.find(r => r.teamNumber === entry.teamNumber)
-                  const nopr = opr[entry.teamNumber]?.nopr ?? null
+                  const status = statuses[entry.teamNumber] ?? 'available'
+                  const inactive = status !== 'available'
                   return (
                     <div
                       key={entry.teamNumber}
-                      className="flex items-center gap-3 px-3 py-2 border-t border-zinc-800/60"
+                      className={`flex items-center gap-3 px-3 py-2 border-t border-zinc-800/60 transition-opacity ${inactive ? 'opacity-40' : ''}`}
                     >
                       <span className="text-[10px] font-mono text-zinc-600 w-5 text-right shrink-0">{idx + 1}</span>
                       <div className="flex-1 min-w-0 flex items-center gap-2">
@@ -829,12 +851,38 @@ function PickListView({
                         </Link>
                         <span className="text-[10px] text-zinc-500 truncate">{teamNames[entry.teamNumber]}</span>
                       </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        {rank && (
-                          <span className="text-[10px] text-zinc-500">#{rank.rank}</span>
-                        )}
-                        {nopr !== null && (
-                          <span className="text-[10px] font-mono text-zinc-400 w-10 text-right">{nopr.toFixed(1)}</span>
+                      <div className="flex gap-1 shrink-0">
+                        {inactive ? (
+                          <>
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border shrink-0 ${
+                              status === 'taken'
+                                ? 'bg-red-500/10 border-red-500/20 text-red-400'
+                                : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                            }`}>
+                              {status === 'taken' ? 'Taken' : 'Declined'}
+                            </span>
+                            <button
+                              onClick={() => setStatus(entry.teamNumber, 'available')}
+                              className="h-6 px-2 text-[10px] rounded border border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300 transition-colors"
+                            >
+                              Restore
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => setStatus(entry.teamNumber, 'taken')}
+                              className="h-6 px-2 text-[10px] rounded border border-zinc-700 text-zinc-500 hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                            >
+                              Taken
+                            </button>
+                            <button
+                              onClick={() => setStatus(entry.teamNumber, 'declined')}
+                              className="h-6 px-2 text-[10px] rounded border border-zinc-700 text-zinc-500 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-400 transition-colors"
+                            >
+                              Declined
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
