@@ -714,12 +714,12 @@ function PickListView({
   const { data: pickList } = useSWR<PickEntry[] | null>(
     `/api/picklist/${season}/${eventCode}/_primary`,
     fetcher,
-    { revalidateOnFocus: false, revalidateOnReconnect: false }
+    { refreshInterval: 30_000 }
   )
   const { data: visData, mutate: mutateVis } = useSWR<PicklistVisibility | null>(
     `/api/picklist/${season}/${eventCode}/visibility`,
     fetcher,
-    { revalidateOnFocus: false, revalidateOnReconnect: false }
+    { revalidateIfStale: false, revalidateOnFocus: false, revalidateOnReconnect: false }
   )
   const { data: savedStatuses } = useSWR<AlliancePick[] | null>(
     `/api/alliance/${season}/${eventCode}`,
@@ -775,9 +775,10 @@ function PickListView({
 
   async function toggleVisibility() {
     const next = !visible
-    // Set optimistic state and do NOT revalidate after — blob has eventual
-    // consistency and an immediate refetch would return stale data.
-    mutateVis({ visible: next }, false)
+    // revalidate:false keeps the optimistic value even when the component
+    // remounts (tab switch). Blob has eventual consistency so we never
+    // refetch after this write — the cache is authoritative until page reload.
+    mutateVis({ visible: next }, { revalidate: false })
     await fetch(`/api/picklist/${season}/${eventCode}/visibility`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

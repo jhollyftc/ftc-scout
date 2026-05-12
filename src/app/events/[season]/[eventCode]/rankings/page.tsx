@@ -10,7 +10,7 @@ import type { RankingsResponse, HybridScheduleResponse } from '@/lib/ftc-client'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
-type SortKey = 'rank' | 'opr' | 'nopr' | 'auto' | 'teleop'
+type SortKey = 'rank' | 'rp' | 'opr' | 'nopr' | 'auto' | 'teleop'
 
 function SortIcon({ col, active, dir }: { col: string; active: boolean; dir: 'asc' | 'desc' }) {
   if (!active) return <ChevronsUpDown className="w-3 h-3 inline ml-0.5 text-zinc-600" />
@@ -96,6 +96,8 @@ export default function RankingsPage({
     let diff = 0
     if (sortKey === 'rank') {
       diff = a.rank - b.rank
+    } else if (sortKey === 'rp') {
+      diff = a.sortOrder1 - b.sortOrder1
     } else if (sortKey === 'opr') {
       diff = (opr[a.teamNumber]?.total ?? -Infinity) - (opr[b.teamNumber]?.total ?? -Infinity)
     } else if (sortKey === 'nopr') {
@@ -128,6 +130,14 @@ export default function RankingsPage({
                 className="text-left w-16"
               />
               <th className="text-left py-2 px-3 text-xs text-zinc-500 font-medium">Team</th>
+              <SortableHeader
+                label="RP"
+                col="rp"
+                sortKey={sortKey}
+                dir={sortDir}
+                onSort={handleSort}
+                className="text-right"
+              />
               <th className="text-center py-2 px-3 text-xs text-zinc-500 font-medium">W-L-T</th>
               <SortableHeader
                 label="nOPR"
@@ -204,6 +214,9 @@ export default function RankingsPage({
                       {r.teamName}
                     </span>
                   </td>
+                  <td className="py-2.5 px-3 text-right">
+                    <span className="text-xs font-mono text-zinc-300">{r.sortOrder1.toFixed(2)}</span>
+                  </td>
                   <td className="py-2.5 px-3 text-center text-xs font-mono text-zinc-400">
                     <span className="text-green-400">{r.wins}</span>
                     <span className="text-zinc-600">-</span>
@@ -255,7 +268,7 @@ export default function RankingsPage({
         </table>
       </div>
       <p className="text-xs text-zinc-700 mt-2">
-        OPR = includes foul pts · nOPR = foul pts removed · Teleop OPR = total − auto − fouls · click headers to sort · auto-refreshes every 30s
+        OPR = includes foul pts · nOPR = foul pts removed · Teleop OPR = total − auto − endgame − fouls · RP = sortOrder1 from FTC API · click headers to sort · auto-refreshes every 30s
       </p>
     </div>
   )

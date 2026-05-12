@@ -564,9 +564,10 @@ function RobotPhoto({
       form.append('teamNumber', teamNumber)
 
       const res = await fetch('/api/photos/upload', { method: 'POST', body: form })
-      const data = await res.json()
+      const contentType = res.headers.get('content-type') ?? ''
+      const data = contentType.includes('application/json') ? await res.json() : {}
 
-      if (!res.ok) throw new Error(data.error ?? 'Upload failed')
+      if (!res.ok) throw new Error(data.error ?? `Upload failed (${res.status})`)
       onUploaded()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed')
