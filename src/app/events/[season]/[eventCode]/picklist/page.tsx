@@ -443,6 +443,7 @@ export default function PickListPage({
   useEffect(() => {
     if (!allTeams.length) return
     if (initialized.current && savedList !== undefined) return
+    if (savedList === undefined) return  // still loading — don't mark initialized yet
 
     if (savedList && savedList.length > 0) {
       const savedNums = new Set(savedList.map(e => e.teamNumber))
