@@ -62,22 +62,8 @@ export default function TeamsPage({
     fetcher,
     { revalidateOnFocus: false, revalidateOnReconnect: false }
   )
-  const { data: avatarData } = useSWR<Record<string, string>>(
-    `/api/avatars/${season}/${eventCode}`,
-    fetcher,
-    { revalidateOnFocus: false, revalidateOnReconnect: false }
-  )
-
   const schedule = schedData?.schedule ?? []
   const opr = useMemo(() => calculateOPR(schedule), [schedule])
-
-  const avatarMap = useMemo(() => {
-    const m = new Map<number, string>()
-    for (const [num, b64] of Object.entries(avatarData ?? {})) {
-      m.set(Number(num), `data:image/png;base64,${b64}`)
-    }
-    return m
-  }, [avatarData])
 
   const teams = useMemo(() => {
     const seen = new Set<number>()
@@ -147,14 +133,6 @@ export default function TeamsPage({
                 hasPit={hasPit}
                 latestNote={isScout ? latestNote(entries) : null}
               />
-
-              {avatarMap.get(teamNumber) && (
-                <img
-                  src={avatarMap.get(teamNumber)}
-                  alt=""
-                  className="w-7 h-7 rounded-full object-contain shrink-0 bg-zinc-800"
-                />
-              )}
 
               <p className="flex-1 min-w-0 text-xs text-zinc-400 truncate">{teamName}</p>
 

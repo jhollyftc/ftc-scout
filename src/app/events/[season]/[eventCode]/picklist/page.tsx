@@ -123,7 +123,6 @@ interface TeamInfo {
   avgRating?: number | null
   hasPit?: boolean
   notesCount: number
-  avatarUrl?: string
 }
 
 function ratingColor(rating: number): string {
@@ -178,9 +177,6 @@ function TeamCard({
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
-                {info.avatarUrl && (
-                  <img src={info.avatarUrl} alt="" className="w-6 h-6 rounded-full object-contain shrink-0 bg-zinc-800" />
-                )}
                 <span className="font-mono font-bold text-base text-zinc-100">{info.teamNumber}</span>
                 {info.avgRating != null && (
                   <span className={`text-sm font-semibold ${ratingColor(info.avgRating)}`}>
@@ -404,12 +400,6 @@ export default function PickListPage({
     fetcher,
     { revalidateOnFocus: false, revalidateOnReconnect: false }
   )
-  const { data: avatarData } = useSWR<Record<string, string>>(
-    `/api/avatars/${season}/${eventCode}`,
-    fetcher,
-    { revalidateOnFocus: false, revalidateOnReconnect: false }
-  )
-
   const schedule = schedData?.schedule ?? []
   const opr = useMemo(() => calculateOPR(schedule), [schedule])
 
@@ -426,14 +416,6 @@ export default function PickListPage({
     }
     return result.sort((a, b) => a.teamNumber - b.teamNumber)
   }, [schedule])
-
-  const avatarMap = useMemo(() => {
-    const m = new Map<number, string>()
-    for (const [num, b64] of Object.entries(avatarData ?? {})) {
-      m.set(Number(num), `data:image/png;base64,${b64}`)
-    }
-    return m
-  }, [avatarData])
 
   const teamInfoMap = useMemo(() => {
     const m = new Map<number, TeamInfo>()
@@ -453,11 +435,10 @@ export default function PickListPage({
         avgRating: avgRat,
         hasPit: pitData ? String(teamNumber) in pitData : undefined,
         notesCount: entries.filter(e => e.notes?.trim()).length,
-        avatarUrl: avatarMap.get(teamNumber),
       })
     }
     return m
-  }, [allTeams, rankData, opr, pitData, allMatchScout, avatarMap])
+  }, [allTeams, rankData, opr, pitData, allMatchScout])
 
   useEffect(() => {
     if (!allTeams.length) return
