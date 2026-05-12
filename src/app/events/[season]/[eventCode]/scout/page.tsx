@@ -4,14 +4,15 @@ import { use, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { useSearchParams } from 'next/navigation'
-import { ChevronLeft, ChevronRight, ArrowUpDown, GripVertical, ChevronUp, ChevronDown } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react'
 import { useScoutMode } from '@/lib/scout-mode'
 import { calculateOPR, type TeamOPR } from '@/lib/opr'
 import { getSeasonConfig } from '@/lib/season-config'
 import type { HybridScheduleResponse, HybridMatch, RankingsResponse } from '@/lib/ftc-client'
 import type { MatchScoutEntry } from '@/app/api/match-scout/[season]/[eventCode]/[matchNumber]/[teamNumber]/route'
 import type { MatchScoutEntryWithMatch } from '@/app/api/match-scout/[season]/[eventCode]/route'
-import type { AlliancePick } from '@/app/api/alliance/[season]/[eventCode]/route'
+import type { PickEntry, PickColumn } from '@/app/api/picklist/[season]/[eventCode]/[listId]/route'
+import type { PicklistVisibility } from '@/app/api/picklist/[season]/[eventCode]/visibility/route'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
@@ -690,21 +691,38 @@ function ScoutBoard({
   )
 }
 
-// ── Alliance Selection Board ─────────────────────────────────────────────────
+// ── Pick List Alliance View ────────────────────────────────────────────────────
 
-function AllianceBoard({
+const PICK_SECTIONS: {
+  col: PickColumn
+  label: string
+  border: string
+  header: string
+  dot: string
+}[] = [
+  { col: 'tier1', label: 'Tier 1',       border: 'border-sky-500/40',    header: 'bg-sky-500/10 text-sky-300',     dot: 'bg-sky-400' },
+  { col: 'tier2', label: 'Tier 2',       border: 'border-purple-500/40', header: 'bg-purple-500/10 text-purple-300', dot: 'bg-purple-400' },
+  { col: 'dnp',   label: 'Do Not Pick',  border: 'border-red-500/40',    header: 'bg-red-500/10 text-red-400',     dot: 'bg-red-400' },
+]
+
+function PickListView({
   season,
   eventCode,
   schedule,
-  allMatchScout,
 }: {
   season: string
   eventCode: string
   schedule: HybridMatch[]
-  allMatchScout: Record<string, MatchScoutEntryWithMatch[]> | undefined
 }) {
-  const { data: savedPicks } = useSWR<AlliancePick[] | null>(
-    `/api/alliance/${season}/${eventCode}`,
+  const { isAdmin } = useScoutMode()
+
+  const { data: pickList } = useSWR<PickEntry[] | null>(
+    `/api/picklist/${season}/${eventCode}/_primary`,
+    fetcher,
+    { revalidateOnFocus: false, revalidateOnReconnect: false }
+  )
+  const { data: visData, mutate: mutateVis } = useSWR<PicklistVisibility | null>(
+    `/api/picklist/${season}/${eventCode}/visibility`,
     fetcher
   )
   const { data: rankData } = useSWR<RankingsResponse>(
@@ -715,270 +733,116 @@ function AllianceBoard({
 
   const opr = useMemo(() => calculateOPR(schedule), [schedule])
 
-  const scoutAvg = useMemo((): Record<number, number | null> => {
-    if (!allMatchScout) return {}
-    const result: Record<number, number | null> = {}
-    for (const [key, entries] of Object.entries(allMatchScout)) {
-      const autoRatings = entries.map(e => e.autoRating).filter((r): r is number => r !== null)
-      const teleopRatings = entries.map(e => e.teleopRating).filter((r): r is number => r !== null)
-      const avgAuto = autoRatings.length ? autoRatings.reduce((a, b) => a + b, 0) / autoRatings.length : null
-      const avgTeleop = teleopRatings.length ? teleopRatings.reduce((a, b) => a + b, 0) / teleopRatings.length : null
-      const count = (avgAuto !== null ? 1 : 0) + (avgTeleop !== null ? 1 : 0)
-      result[Number(key)] = count > 0 ? ((avgAuto ?? 0) + (avgTeleop ?? 0)) / count : null
-    }
-    return result
-  }, [allMatchScout])
-
-  const teamInfo = useMemo((): Record<number, string> => {
+  const teamNames = useMemo((): Record<number, string> => {
     const map: Record<number, string> = {}
     for (const m of schedule) for (const t of m.teams) map[t.teamNumber] = t.teamName
     return map
   }, [schedule])
 
-  const [picks, setPicks] = useState<AlliancePick[]>([])
-  const [saving, setSaving] = useState(false)
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [isDesktop, setIsDesktop] = useState(false)
-  const [dragTeam, setDragTeam] = useState<number | null>(null)
-  const [dragOverTeam, setDragOverTeam] = useState<number | null>(null)
-  const initialized = useRef(false)
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    setIsDesktop(window.matchMedia('(hover: hover) and (pointer: fine)').matches)
-  }, [])
-
-  useEffect(() => {
-    if (initialized.current || savedPicks === undefined) return
-    initialized.current = true
-    if (savedPicks && savedPicks.length > 0) {
-      setPicks(savedPicks)
-      return
+  const groups = useMemo(() => {
+    if (!pickList) return null
+    const sorted = [...pickList].sort((a, b) => a.order - b.order)
+    return {
+      tier1: sorted.filter(e => e.column === 'tier1'),
+      tier2: sorted.filter(e => e.column === 'tier2'),
+      dnp:   sorted.filter(e => e.column === 'dnp'),
     }
-    const seen = new Set<number>()
-    const list: { teamNumber: number }[] = []
-    for (const m of schedule) {
-      for (const t of m.teams) {
-        if (!seen.has(t.teamNumber)) { seen.add(t.teamNumber); list.push({ teamNumber: t.teamNumber }) }
-      }
-    }
-    list.sort((a, b) => {
-      const na = opr[a.teamNumber]?.nopr ?? null
-      const nb = opr[b.teamNumber]?.nopr ?? null
-      if (na !== null && nb !== null) return nb - na
-      if (na !== null) return -1
-      if (nb !== null) return 1
-      return a.teamNumber - b.teamNumber
+  }, [pickList])
+
+  const visible = visData?.visible ?? false
+
+  async function toggleVisibility() {
+    const next = !visible
+    mutateVis({ visible: next }, false)
+    await fetch(`/api/picklist/${season}/${eventCode}/visibility`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ visible: next }),
     })
-    setPicks(list.map((t, i) => ({ teamNumber: t.teamNumber, status: 'available', priority: i + 1 })))
-  }, [savedPicks, schedule, opr])
-
-  function persistPicks(newPicks: AlliancePick[]) {
-    setPicks(newPicks)
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(async () => {
-      setSaving(true)
-      await fetch(`/api/alliance/${season}/${eventCode}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newPicks),
-      })
-      setSaving(false)
-      setLastSaved(new Date())
-    }, 600)
+    mutateVis()
   }
 
-  function moveUp(teamNumber: number) {
-    const avail = picks.filter(p => p.status === 'available').sort((a, b) => a.priority - b.priority)
-    const idx = avail.findIndex(p => p.teamNumber === teamNumber)
-    if (idx <= 0) return
-    const next = [...avail];
-    [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]
-    persistPicks([...next.map((p, i) => ({ ...p, priority: i + 1 })), ...picks.filter(p => p.status !== 'available')])
+  if (!isAdmin && !visible) {
+    return (
+      <div className="py-16 text-center">
+        <p className="text-zinc-400 text-sm">Pick list not yet shared.</p>
+        <p className="text-zinc-600 text-xs mt-1">Admin will reveal it before alliance selection.</p>
+      </div>
+    )
   }
 
-  function moveDown(teamNumber: number) {
-    const avail = picks.filter(p => p.status === 'available').sort((a, b) => a.priority - b.priority)
-    const idx = avail.findIndex(p => p.teamNumber === teamNumber)
-    if (idx >= avail.length - 1) return
-    const next = [...avail];
-    [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]]
-    persistPicks([...next.map((p, i) => ({ ...p, priority: i + 1 })), ...picks.filter(p => p.status !== 'available')])
-  }
-
-  function setStatus(teamNumber: number, status: AlliancePick['status']) {
-    persistPicks(picks.map(p => p.teamNumber === teamNumber ? { ...p, status } : p))
-  }
-
-  function handleDrop(targetTeamNumber: number) {
-    if (dragTeam === null || dragTeam === targetTeamNumber) {
-      setDragTeam(null); setDragOverTeam(null); return
-    }
-    const avail = picks.filter(p => p.status === 'available').sort((a, b) => a.priority - b.priority)
-    const fromIdx = avail.findIndex(p => p.teamNumber === dragTeam)
-    const toIdx = avail.findIndex(p => p.teamNumber === targetTeamNumber)
-    if (fromIdx === -1 || toIdx === -1) return
-    const next = [...avail]
-    const [removed] = next.splice(fromIdx, 1)
-    next.splice(toIdx, 0, removed)
-    persistPicks([...next.map((p, i) => ({ ...p, priority: i + 1 })), ...picks.filter(p => p.status !== 'available')])
-    setDragTeam(null); setDragOverTeam(null)
-  }
-
-  const available = picks.filter(p => p.status === 'available').sort((a, b) => a.priority - b.priority)
-  const inactive = picks.filter(p => p.status !== 'available').sort((a, b) => a.priority - b.priority)
-
-  if (savedPicks === undefined) {
+  if (pickList === undefined || groups === null) {
     return <p className="text-zinc-500 text-sm py-12 text-center">Loading…</p>
   }
 
+  const isEmpty = groups.tier1.length === 0 && groups.tier2.length === 0 && groups.dnp.length === 0
+
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-2xl">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Alliance Selection</h2>
-        <span className="text-[10px] text-zinc-600">
-          {saving ? 'Saving…' : lastSaved
-            ? `Saved ${lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-            : ''}
-        </span>
-      </div>
-
-      {/* Available picks */}
-      <div className="rounded-lg border border-zinc-800 overflow-hidden mb-4">
-        {available.map((pick, idx) => {
-          const rank = rankData?.rankings.find(r => r.teamNumber === pick.teamNumber)
-          const nopr = opr[pick.teamNumber]?.nopr ?? null
-          const avg = scoutAvg[pick.teamNumber] ?? null
-          const isDragging = dragTeam === pick.teamNumber
-          const isDragOver = dragOverTeam === pick.teamNumber && dragTeam !== pick.teamNumber
-
-          return (
-            <div
-              key={pick.teamNumber}
-              draggable={isDesktop}
-              onDragStart={() => setDragTeam(pick.teamNumber)}
-              onDragOver={e => { e.preventDefault(); setDragOverTeam(pick.teamNumber) }}
-              onDrop={() => handleDrop(pick.teamNumber)}
-              onDragEnd={() => { setDragTeam(null); setDragOverTeam(null) }}
-              className={[
-                'flex items-center gap-2 px-3 py-2.5 border-b border-zinc-800 last:border-0 transition-colors',
-                isDragging ? 'opacity-40' : '',
-                isDragOver ? 'bg-sky-500/5 border-l-2 border-l-sky-500/50' : 'hover:bg-zinc-900/60',
-              ].join(' ')}
-            >
-              {isDesktop ? (
-                <GripVertical className="w-4 h-4 text-zinc-700 cursor-grab shrink-0" />
-              ) : (
-                <div className="flex flex-col shrink-0">
-                  <button onClick={() => moveUp(pick.teamNumber)} disabled={idx === 0}
-                    className="text-zinc-600 hover:text-zinc-300 disabled:opacity-20 transition-colors">
-                    <ChevronUp className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => moveDown(pick.teamNumber)} disabled={idx === available.length - 1}
-                    className="text-zinc-600 hover:text-zinc-300 disabled:opacity-20 transition-colors">
-                    <ChevronDown className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-
-              <span className="text-[10px] font-mono text-zinc-600 w-6 text-right shrink-0">#{idx + 1}</span>
-
-              <div className="flex-1 min-w-0">
-                <Link
-                  href={`/events/${season}/${eventCode}/teams/${pick.teamNumber}`}
-                  className="text-xs font-bold text-sky-400 hover:underline"
-                >
-                  {pick.teamNumber}
-                </Link>
-                <span className="text-[10px] text-zinc-600 ml-1.5 truncate hidden sm:inline">
-                  {teamInfo[pick.teamNumber] ?? ''}
-                </span>
-              </div>
-
-              {rank && (
-                <span className="text-[10px] font-mono text-zinc-500 shrink-0" title="Event rank">
-                  #{rank.rank}
-                </span>
-              )}
-
-              <span className="text-[10px] font-mono text-zinc-500 w-10 text-right shrink-0" title="nOPR">
-                {nopr !== null ? nopr.toFixed(1) : '—'}
-              </span>
-
-              {avg !== null ? (
-                <span className="text-[10px] font-mono text-sky-400 w-8 text-right shrink-0" title="Scout avg">
-                  ★{avg.toFixed(1)}
-                </span>
-              ) : (
-                <span className="w-8 shrink-0" />
-              )}
-
-              <div className="flex gap-1 shrink-0">
-                <button
-                  onClick={() => setStatus(pick.teamNumber, 'taken')}
-                  className="h-6 px-2 text-[10px] rounded border border-zinc-700 text-zinc-500 hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-400 transition-colors"
-                >
-                  Taken
-                </button>
-                <button
-                  onClick={() => setStatus(pick.teamNumber, 'declined')}
-                  className="h-6 px-2 text-[10px] rounded border border-zinc-700 text-zinc-500 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-400 transition-colors"
-                >
-                  Declined
-                </button>
-              </div>
-            </div>
-          )
-        })}
-        {available.length === 0 && (
-          <p className="py-8 text-center text-zinc-600 text-xs">All teams marked as taken or declined.</p>
+        <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Alliance Pick List</h2>
+        {isAdmin && (
+          <button
+            onClick={toggleVisibility}
+            className={`px-3 py-1 text-xs font-medium rounded-md border transition-colors ${
+              visible
+                ? 'bg-green-900/40 border-green-600/50 text-green-400 hover:bg-green-900/60'
+                : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
+            }`}
+          >
+            {visible ? 'Visible to scouts' : 'Hidden from scouts'}
+          </button>
         )}
       </div>
 
-      {/* Taken / Declined */}
-      {inactive.length > 0 && (
-        <div>
-          <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Taken / Declined</p>
-          <div className="rounded-lg border border-zinc-800 overflow-hidden">
-            {inactive.map(pick => {
-              const nopr = opr[pick.teamNumber]?.nopr ?? null
-              const avg = scoutAvg[pick.teamNumber] ?? null
-              return (
-                <div
-                  key={pick.teamNumber}
-                  className="flex items-center gap-2 px-3 py-2 border-b border-zinc-800 last:border-0 opacity-60"
-                >
-                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border shrink-0 ${
-                    pick.status === 'taken'
-                      ? 'bg-red-500/10 border-red-500/20 text-red-400'
-                      : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-                  }`}>
-                    {pick.status === 'taken' ? 'Taken' : 'Declined'}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-xs font-bold text-zinc-400">{pick.teamNumber}</span>
-                    <span className="text-[10px] text-zinc-600 ml-1.5 hidden sm:inline">
-                      {teamInfo[pick.teamNumber] ?? ''}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono text-zinc-600 w-10 text-right shrink-0">
-                    {nopr !== null ? nopr.toFixed(1) : ''}
-                  </span>
-                  {avg !== null ? (
-                    <span className="text-[10px] font-mono text-zinc-600 w-8 text-right shrink-0">★{avg.toFixed(1)}</span>
-                  ) : (
-                    <span className="w-8 shrink-0" />
-                  )}
-                  <button
-                    onClick={() => setStatus(pick.teamNumber, 'available')}
-                    className="h-6 px-2 text-[10px] rounded border border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300 transition-colors shrink-0"
-                  >
-                    Restore
-                  </button>
+      {isEmpty ? (
+        <p className="text-zinc-500 text-sm text-center py-8">
+          Pick list is empty — assign teams in the Pick List tab first.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {PICK_SECTIONS.map(({ col, label, border, header, dot }) => {
+            const entries = groups[col as 'tier1' | 'tier2' | 'dnp']
+            if (entries.length === 0) return null
+            return (
+              <div key={col} className={`rounded-lg border ${border} overflow-hidden`}>
+                <div className={`px-3 py-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider ${header}`}>
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
+                  {label}
+                  <span className="font-normal opacity-60 ml-auto">{entries.length}</span>
                 </div>
-              )
-            })}
-          </div>
+                {entries.map((entry, idx) => {
+                  const rank = rankData?.rankings.find(r => r.teamNumber === entry.teamNumber)
+                  const nopr = opr[entry.teamNumber]?.nopr ?? null
+                  return (
+                    <div
+                      key={entry.teamNumber}
+                      className="flex items-center gap-3 px-3 py-2 border-t border-zinc-800/60"
+                    >
+                      <span className="text-[10px] font-mono text-zinc-600 w-5 text-right shrink-0">{idx + 1}</span>
+                      <div className="flex-1 min-w-0 flex items-center gap-2">
+                        <Link
+                          href={`/events/${season}/${eventCode}/teams/${entry.teamNumber}`}
+                          className="text-xs font-bold text-zinc-100 hover:text-sky-400 transition-colors shrink-0"
+                        >
+                          {entry.teamNumber}
+                        </Link>
+                        <span className="text-[10px] text-zinc-500 truncate">{teamNames[entry.teamNumber]}</span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        {rank && (
+                          <span className="text-[10px] text-zinc-500">#{rank.rank}</span>
+                        )}
+                        {nopr !== null && (
+                          <span className="text-[10px] font-mono text-zinc-400 w-10 text-right">{nopr.toFixed(1)}</span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -1047,7 +911,7 @@ export default function ScoutPage({
       </div>
 
       {view === 'alliance' ? (
-        <AllianceBoard season={season} eventCode={eventCode} schedule={schedule} allMatchScout={allMatchScout} />
+        <PickListView season={season} eventCode={eventCode} schedule={schedule} />
       ) : view === 'board' ? (
         <ScoutBoard season={season} eventCode={eventCode} schedule={schedule} allMatchScout={allMatchScout} />
       ) : (
