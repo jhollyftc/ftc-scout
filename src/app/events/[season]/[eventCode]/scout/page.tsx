@@ -713,8 +713,7 @@ function PickListView({
 
   const { data: pickList } = useSWR<PickEntry[] | null>(
     `/api/picklist/${season}/${eventCode}/_primary`,
-    fetcher,
-    { refreshInterval: 30_000 }
+    fetcher
   )
   const { data: visData, mutate: mutateVis } = useSWR<PicklistVisibility | null>(
     `/api/picklist/${season}/${eventCode}/visibility`,
