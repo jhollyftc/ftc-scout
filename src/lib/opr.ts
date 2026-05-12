@@ -82,15 +82,10 @@ export function calculateOPR(matches: HybridMatch[]): Record<number, TeamOPR> {
       match.scoreBlueFinal! - (match.scoreBlueFoul ?? 0)
     )
     sAuto.push(match.scoreRedAuto ?? 0, match.scoreBlueAuto ?? 0)
-    // driveControlled is null in the hybrid schedule for most events; derive
-    // teleop as final − auto − endgame − foul when the field is unavailable.
-    const telR = match.scoreRedDriveControlled !== null
-      ? match.scoreRedDriveControlled
-      : match.scoreRedFinal! - (match.scoreRedAuto ?? 0) - (match.scoreRedEndgame ?? 0) - (match.scoreRedFoul ?? 0)
-    const telB = match.scoreBlueDriveControlled !== null
-      ? match.scoreBlueDriveControlled
-      : match.scoreBlueFinal! - (match.scoreBlueAuto ?? 0) - (match.scoreBlueEndgame ?? 0) - (match.scoreBlueFoul ?? 0)
-    sTeleop.push(telR, telB)
+    sTeleop.push(
+      match.scoreRedFinal! - (match.scoreRedAuto ?? 0) - (match.scoreRedEndgame ?? 0) - (match.scoreRedFoul ?? 0),
+      match.scoreBlueFinal! - (match.scoreBlueAuto ?? 0) - (match.scoreBlueEndgame ?? 0) - (match.scoreBlueFoul ?? 0)
+    )
   }
 
   const totalOpr = solveLeastSquares(M, sTotal)
