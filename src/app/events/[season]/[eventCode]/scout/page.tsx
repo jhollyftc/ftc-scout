@@ -712,7 +712,7 @@ function PickListView({
   const { isAdmin } = useScoutMode()
 
   const { data: pickList } = useSWR<PickEntry[] | null>(
-    `/api/picklist/${season}/${eventCode}/_primary`,
+    `/api/picklist/${season}/${eventCode}/_admin`,
     fetcher
   )
   const { data: visData, mutate: mutateVis } = useSWR<PicklistVisibility | null>(

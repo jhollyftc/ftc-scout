@@ -348,7 +348,7 @@ export default function PickListPage({
   const { isScout, isAdmin, scoutName } = useScoutMode()
 
   const [view, setView] = useState<'personal' | 'primary'>('personal')
-  const listId = view === 'primary' ? '_primary' : (scoutName ?? '')
+  const listId = view === 'primary' ? '_primary' : (isAdmin ? '_admin' : (scoutName ?? ''))
 
   const [columns, setColumns] = useState<Record<PickColumn, number[]>>({
     tier1: [], tier2: [], dnp: [], uncategorized: [],
@@ -590,7 +590,7 @@ export default function PickListPage({
       ).then(r => r.json())
 
       const scoutLists = Object.fromEntries(
-        Object.entries(allLists).filter(([k]) => k !== '_primary')
+        Object.entries(allLists).filter(([k]) => k !== '_primary' && k !== '_admin')
       )
       if (!Object.keys(scoutLists).length) return
 
@@ -636,7 +636,7 @@ export default function PickListPage({
                   view === v ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                {v === 'personal' ? 'My List' : 'Primary'}
+                {v === 'personal' ? 'My List' : 'Merged'}
               </button>
             ))}
           </div>
