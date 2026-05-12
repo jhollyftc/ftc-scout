@@ -24,7 +24,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Shield, Download } from 'lucide-react'
+import { Shield, Download, GripVertical } from 'lucide-react'
 import { useScoutMode } from '@/lib/scout-mode'
 import { calculateOPR } from '@/lib/opr'
 import type { HybridScheduleResponse, RankingsResponse } from '@/lib/ftc-client'
@@ -35,11 +35,11 @@ const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 const COLUMN_IDS: PickColumn[] = ['tier1', 'tier2', 'dnp', 'uncategorized']
 
-const COLUMN_META: Record<PickColumn, { label: string; border: string; header: string }> = {
-  tier1:         { label: 'Tier 1',        border: 'border-sky-500/40',    header: 'bg-sky-500/10 text-sky-300' },
-  tier2:         { label: 'Tier 2',        border: 'border-purple-500/40', header: 'bg-purple-500/10 text-purple-300' },
-  dnp:           { label: 'Do Not Pick',   border: 'border-red-500/40',    header: 'bg-red-500/10 text-red-400' },
-  uncategorized: { label: 'Uncategorized', border: 'border-zinc-700',      header: 'bg-zinc-800 text-zinc-400' },
+const COLUMN_META: Record<PickColumn, { label: string; mobileLabel: string; border: string; header: string }> = {
+  tier1:         { label: 'Tier 1',        mobileLabel: 'Tier 1', border: 'border-sky-500/40',    header: 'bg-sky-500/10 text-sky-300' },
+  tier2:         { label: 'Tier 2',        mobileLabel: 'Tier 2', border: 'border-purple-500/40', header: 'bg-purple-500/10 text-purple-300' },
+  dnp:           { label: 'Do Not Pick',   mobileLabel: 'DNP',    border: 'border-red-500/40',    header: 'bg-red-500/10 text-red-400' },
+  uncategorized: { label: 'Uncategorized', mobileLabel: 'Uncat',  border: 'border-zinc-700',      header: 'bg-zinc-800 text-zinc-400' },
 }
 
 function avg(vals: (number | null)[]): number | null {
@@ -47,7 +47,6 @@ function avg(vals: (number | null)[]): number | null {
   return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null
 }
 
-// Merge all scouts' lists into a primary list by majority vote
 function mergeLists(allLists: Record<string, PickEntry[]>, teamNumbers: number[]): PickEntry[] {
   const TIE_PRIORITY: PickColumn[] = ['tier1', 'tier2', 'uncategorized', 'dnp']
   const result: PickEntry[] = []
@@ -135,45 +134,91 @@ function TeamCard({
   isDragging,
   dragAttributes,
   dragListeners,
+  currentCol,
+  moveOpen,
+  onToggleMove,
+  onMove,
 }: {
   info: TeamInfo
   isDragging?: boolean
   dragAttributes?: ReturnType<typeof useSortable>['attributes']
   dragListeners?: ReturnType<typeof useSortable>['listeners']
+  currentCol?: PickColumn
+  moveOpen?: boolean
+  onToggleMove?: () => void
+  onMove?: (targetCol: PickColumn) => void
 }) {
   return (
     <div
-      {...dragAttributes}
-      {...dragListeners}
-      className={`rounded-lg border bg-zinc-900 p-3 select-none cursor-grab active:cursor-grabbing touch-none transition-shadow ${
+      className={`rounded-lg border bg-zinc-900 select-none transition-shadow ${
         isDragging
           ? 'border-sky-500/60 shadow-lg shadow-sky-500/10 opacity-50'
           : 'border-zinc-700 hover:border-zinc-500'
       }`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="font-mono font-bold text-base text-zinc-100">{info.teamNumber}</span>
-            {info.avgRating != null && (
-              <span className={`text-sm font-semibold ${ratingColor(info.avgRating)}`}>
-                ★ {info.avgRating.toFixed(1)}
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-zinc-400 truncate leading-tight">{info.teamName}</p>
-          {info.hasPit !== undefined && (
-            <span className={`text-[10px] mt-1 inline-block ${info.hasPit ? 'text-green-400' : 'text-amber-500'}`}>
-              {info.hasPit ? '● Pit ✓' : '○ Pit'}
-            </span>
-          )}
+      <div className="flex items-stretch">
+        {/* Grip handle — only this zone initiates drag */}
+        <div
+          {...dragAttributes}
+          {...dragListeners}
+          className="flex items-center px-2 cursor-grab active:cursor-grabbing touch-none text-zinc-600 hover:text-zinc-400 border-r border-zinc-800 shrink-0"
+        >
+          <GripVertical className="w-3.5 h-3.5" />
         </div>
-        <div className="flex flex-col items-end shrink-0 gap-0.5">
-          {info.rank != null && (
-            <span className="text-xs text-zinc-300 font-medium">Rank {info.rank}</span>
-          )}
-          {info.nopr != null && (
-            <span className="text-xs text-zinc-300 font-mono">{info.nopr.toFixed(1)} nOPR</span>
+
+        {/* Card content */}
+        <div className="flex-1 p-2.5 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="font-mono font-bold text-base text-zinc-100">{info.teamNumber}</span>
+                {info.avgRating != null && (
+                  <span className={`text-sm font-semibold ${ratingColor(info.avgRating)}`}>
+                    ★ {info.avgRating.toFixed(1)}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-zinc-400 truncate leading-tight">{info.teamName}</p>
+              {info.hasPit !== undefined && (
+                <span className={`text-[10px] mt-0.5 inline-block ${info.hasPit ? 'text-green-400' : 'text-amber-500'}`}>
+                  {info.hasPit ? '● Pit ✓' : '○ Pit'}
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-col items-end shrink-0 gap-0.5">
+              {info.rank != null && (
+                <span className="text-xs text-zinc-300 font-medium">Rank {info.rank}</span>
+              )}
+              {info.nopr != null && (
+                <span className="text-xs text-zinc-300 font-mono">{info.nopr.toFixed(1)} nOPR</span>
+              )}
+              {onToggleMove && currentCol && (
+                <button
+                  type="button"
+                  className="sm:hidden mt-1 text-[10px] text-zinc-500 active:text-zinc-200 transition-colors"
+                  onClick={e => { e.stopPropagation(); onToggleMove() }}
+                >
+                  {moveOpen ? 'Cancel' : 'Move →'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Move target chips — mobile only, shown when moveOpen */}
+          {moveOpen && onMove && currentCol && (
+            <div className="sm:hidden mt-2 pt-2 border-t border-zinc-800 flex gap-1.5 flex-wrap">
+              {COLUMN_IDS.filter(c => c !== currentCol).map(c => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={e => { e.stopPropagation(); onMove(c) }}
+                  className={`px-2.5 py-1 text-[10px] rounded-md font-medium border transition-colors ${COLUMN_META[c].header} ${COLUMN_META[c].border}`}
+                >
+                  {COLUMN_META[c].label}
+                </button>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -181,7 +226,16 @@ function TeamCard({
   )
 }
 
-function SortableTeamCard({ info }: { info: TeamInfo }) {
+function SortableTeamCard({
+  info,
+  currentCol,
+  onMove,
+}: {
+  info: TeamInfo
+  currentCol: PickColumn
+  onMove: (teamNumber: number, targetCol: PickColumn) => void
+}) {
+  const [moveOpen, setMoveOpen] = useState(false)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: info.teamNumber,
   })
@@ -192,6 +246,10 @@ function SortableTeamCard({ info }: { info: TeamInfo }) {
         isDragging={isDragging}
         dragAttributes={attributes}
         dragListeners={listeners}
+        currentCol={currentCol}
+        moveOpen={moveOpen}
+        onToggleMove={() => setMoveOpen(s => !s)}
+        onMove={targetCol => { onMove(info.teamNumber, targetCol); setMoveOpen(false) }}
       />
     </div>
   )
@@ -203,10 +261,12 @@ function KanbanColumn({
   col,
   teamNumbers,
   teamInfoMap,
+  onMove,
 }: {
   col: PickColumn
   teamNumbers: number[]
   teamInfoMap: Map<number, TeamInfo>
+  onMove: (teamNumber: number, targetCol: PickColumn) => void
 }) {
   const meta = COLUMN_META[col]
   const { setNodeRef } = useDroppable({ id: col })
@@ -221,7 +281,7 @@ function KanbanColumn({
         <div className="flex flex-col gap-1.5 p-2 flex-1">
           {teamNumbers.map(tn => {
             const info = teamInfoMap.get(tn) ?? { teamNumber: tn, teamName: String(tn) }
-            return <SortableTeamCard key={tn} info={info} />
+            return <SortableTeamCard key={tn} info={info} currentCol={col} onMove={onMove} />
           })}
           {teamNumbers.length === 0 && (
             <p className="text-[11px] text-zinc-700 text-center py-8 italic">Drop here</p>
@@ -248,6 +308,7 @@ export default function PickListPage({
   const [columns, setColumns] = useState<Record<PickColumn, number[]>>({
     tier1: [], tier2: [], dnp: [], uncategorized: [],
   })
+  const [mobileTab, setMobileTab] = useState<PickColumn>('uncategorized')
   const [activeId, setActiveId] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [importBusy, setImportBusy] = useState(false)
@@ -322,7 +383,6 @@ export default function PickListPage({
     return m
   }, [allTeams, rankData, opr, pitData, allMatchScout])
 
-  // Initialize columns from saved list (or default all to uncategorized)
   useEffect(() => {
     if (!allTeams.length) return
     if (initialized.current && savedList !== undefined) return
@@ -371,6 +431,23 @@ export default function PickListPage({
       }, 600)
     },
     [listId, season, eventCode, mutateList]
+  )
+
+  const moveTeam = useCallback(
+    (teamNumber: number, targetCol: PickColumn) => {
+      setColumns(prev => {
+        const sourceCol = findColumnForTeam(prev, teamNumber)
+        if (!sourceCol || sourceCol === targetCol) return prev
+        const newCols = {
+          ...prev,
+          [sourceCol]: prev[sourceCol].filter(n => n !== teamNumber),
+          [targetCol]: [...prev[targetCol], teamNumber],
+        }
+        scheduleSave(newCols)
+        return newCols
+      })
+    },
+    [scheduleSave]
   )
 
   // ── DnD handlers ───────────────────────────────────────────────────────────
@@ -436,6 +513,14 @@ export default function PickListPage({
 
     scheduleSave(columns)
   }
+
+  const collisionDetection = useCallback(
+    (args: Parameters<typeof pointerWithin>[0]) => {
+      const hits = pointerWithin(args)
+      return hits.length > 0 ? hits : rectIntersection(args)
+    },
+    []
+  )
 
   // ── Admin import merge ──────────────────────────────────────────────────────
 
@@ -514,24 +599,68 @@ export default function PickListPage({
         <span className={`ml-auto text-[11px] text-zinc-600 ${saving ? 'visible' : 'invisible'}`}>Saving…</span>
       </div>
 
-      {/* Board */}
+      {/* ── Mobile: tab bar + single active column ── */}
+      <div className="sm:hidden">
+        <div className="flex gap-1 mb-3">
+          {COLUMN_IDS.map(col => {
+            const meta = COLUMN_META[col]
+            const active = mobileTab === col
+            return (
+              <button
+                key={col}
+                type="button"
+                onClick={() => setMobileTab(col)}
+                className={`flex-1 py-2 text-[10px] font-semibold rounded-lg border transition-colors leading-tight ${
+                  active ? `${meta.header} ${meta.border}` : 'border-zinc-700 text-zinc-500'
+                }`}
+              >
+                {meta.mobileLabel}
+                <br />
+                <span className="opacity-60 font-normal">{columns[col].length}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        <DndContext
+          sensors={sensors}
+          collisionDetection={collisionDetection}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <KanbanColumn
+            col={mobileTab}
+            teamNumbers={columns[mobileTab]}
+            teamInfoMap={teamInfoMap}
+            onMove={moveTeam}
+          />
+          <DragOverlay>
+            {activeInfo && (
+              <div className="opacity-90 rotate-1 shadow-2xl">
+                <TeamCard info={activeInfo} />
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
+      </div>
+
+      {/* ── Desktop: 4-column grid ── */}
       <DndContext
         sensors={sensors}
-        collisionDetection={args => {
-          const hits = pointerWithin(args)
-          return hits.length > 0 ? hits : rectIntersection(args)
-        }}
+        collisionDetection={collisionDetection}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {COLUMN_IDS.map(col => (
             <KanbanColumn
               key={col}
               col={col}
               teamNumbers={columns[col]}
               teamInfoMap={teamInfoMap}
+              onMove={moveTeam}
             />
           ))}
         </div>
