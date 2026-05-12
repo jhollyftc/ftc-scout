@@ -773,7 +773,10 @@ export default function PickListPage({
                 ) : entries.map(e => (
                   <div key={e.matchNumber} className="flex gap-3">
                     <span className="text-[10px] font-mono text-sky-500 shrink-0 mt-0.5 w-8">Q{e.matchNumber}</span>
-                    <p className="text-xs text-zinc-300 leading-relaxed">{e.notes}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-zinc-300 leading-relaxed">{e.notes}</p>
+                      {e.scoutedBy && <p className="text-[10px] text-zinc-600 mt-0.5">— {e.scoutedBy}</p>}
+                    </div>
                   </div>
                 ))}
               </div>

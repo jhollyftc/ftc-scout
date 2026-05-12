@@ -411,6 +411,9 @@ function PitScoutingForm({
                   </span>
                 )
               })}
+              {saved._scoutedBy && (
+                <span className="text-[10px] text-zinc-600 w-full mt-0.5">Scouted by {saved._scoutedBy}</span>
+              )}
             </div>
           ) : (
             <span className="text-xs text-zinc-600 italic">Not yet scouted — click to fill in</span>

@@ -7,6 +7,7 @@ interface MatchScoutEntry {
   endgame: string
   notes: string
   scoutedAt: string
+  scoutedBy?: string
 }
 
 export interface MatchScoutEntryWithMatch extends MatchScoutEntry {
