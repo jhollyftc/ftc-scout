@@ -83,8 +83,8 @@ export function calculateOPR(matches: HybridMatch[]): Record<number, TeamOPR> {
     )
     sAuto.push(match.scoreRedAuto ?? 0, match.scoreBlueAuto ?? 0)
     sTeleop.push(
-      match.scoreRedFinal! - (match.scoreRedAuto ?? 0) - (match.scoreRedFoul ?? 0),
-      match.scoreBlueFinal! - (match.scoreBlueAuto ?? 0) - (match.scoreBlueFoul ?? 0)
+      match.scoreRedDriveControlled ?? 0,
+      match.scoreBlueDriveControlled ?? 0
     )
   }
 

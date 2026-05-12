@@ -118,6 +118,8 @@ interface TeamInfo {
   teamName: string
   rank?: number
   nopr?: number
+  autoOpr?: number
+  teleopOpr?: number
   avgRating?: number | null
   hasPit?: boolean
   notesCount: number
@@ -211,6 +213,11 @@ function TeamCard({
               )}
               {info.nopr != null && (
                 <span className="text-xs text-zinc-300 font-mono">{info.nopr.toFixed(1)} nOPR</span>
+              )}
+              {(info.autoOpr != null || info.teleopOpr != null) && (
+                <span className="text-[10px] text-zinc-500 font-mono">
+                  {info.autoOpr?.toFixed(1) ?? '—'}a · {info.teleopOpr?.toFixed(1) ?? '—'}t
+                </span>
               )}
               {onToggleMove && currentCol && (
                 <button
@@ -441,6 +448,8 @@ export default function PickListPage({
         teamName,
         rank: rankInfo?.rank,
         nopr: opr[teamNumber]?.nopr,
+        autoOpr: opr[teamNumber]?.auto,
+        teleopOpr: opr[teamNumber]?.teleop,
         avgRating: avgRat,
         hasPit: pitData ? String(teamNumber) in pitData : undefined,
         notesCount: entries.filter(e => e.notes?.trim()).length,
