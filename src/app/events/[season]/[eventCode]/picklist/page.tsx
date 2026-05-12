@@ -398,7 +398,7 @@ export default function PickListPage({
   const { data: savedList, mutate: mutateList } = useSWR<PickEntry[] | null>(
     listId ? `/api/picklist/${season}/${eventCode}/${listId}` : null,
     fetcher,
-    { revalidateOnFocus: false, revalidateOnReconnect: false }
+    { revalidateOnFocus: false, revalidateOnReconnect: false, revalidateIfStale: false }
   )
   const schedule = schedData?.schedule ?? []
   const opr = useMemo(() => calculateOPR(schedule), [schedule])
@@ -440,6 +440,11 @@ export default function PickListPage({
     return m
   }, [allTeams, rankData, opr, pitData, allMatchScout])
 
+  // Must be defined BEFORE the init effect so it runs first when listId changes.
+  // React runs effects in definition order; if this came after, initialized
+  // would still be true when the init effect fires and it would return early.
+  useEffect(() => { initialized.current = false }, [listId])
+
   useEffect(() => {
     if (!allTeams.length) return
     if (initialized.current && savedList !== undefined) return
@@ -470,16 +475,15 @@ export default function PickListPage({
     initialized.current = true
   }, [savedList, allTeams, listId, season, eventCode, mutateList])
 
-  useEffect(() => { initialized.current = false }, [listId])
-
   const scheduleSave = useCallback(
     (newCols: Record<PickColumn, number[]>) => {
+      if (!listId) return
+      const entries = columnsToEntries(newCols)
+      // Update SWR cache immediately so view switches don't show stale data
+      mutateList(entries, { revalidate: false })
       if (saveTimer.current) clearTimeout(saveTimer.current)
       saveTimer.current = setTimeout(async () => {
-        if (!listId) return
         setSaving(true)
-        const entries = columnsToEntries(newCols)
-        mutateList(entries, { revalidate: false })
         await fetch(`/api/picklist/${season}/${eventCode}/${listId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
