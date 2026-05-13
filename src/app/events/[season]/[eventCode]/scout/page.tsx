@@ -77,6 +77,7 @@ function TeamScoutCard({
     setSaving(true)
     const entry: MatchScoutEntry = {
       ...form,
+      notes: form.notes.trim() || 'no notes taken',
       scoutedAt: new Date().toISOString(),
       scoutedBy: scoutName ?? 'unknown',
     }
