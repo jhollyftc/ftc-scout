@@ -5,7 +5,7 @@ import useSWR from 'swr'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Search, Calendar, MapPin, Users, Shield, Lock, ChevronRight } from 'lucide-react'
+import { Search, Calendar, MapPin, Users, Shield, Lock, ChevronRight, Info } from 'lucide-react'
 import { useScoutMode } from '@/lib/scout-mode'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -103,6 +103,7 @@ export default function HomePage() {
   const [teamInput, setTeamInput] = useState('')
   const [searchActive, setSearchActive] = useState(false)
   const [scoutOpen, setScoutOpen] = useState(false)
+  const [showAbout, setShowAbout] = useState(false)
   const [selectedName, setSelectedName] = useState('')
   const [pinInput, setPinInput] = useState('')
   const [pinError, setPinError] = useState(false)
@@ -188,6 +189,13 @@ export default function HomePage() {
               className="drop-shadow-[0_0_6px_rgba(96,165,250,0.5)] shrink-0"
             />
             <span className="text-base font-bold tracking-tight">FTC Nova Pyra Scout</span>
+            <button
+              onClick={() => setShowAbout(true)}
+              className="text-zinc-600 hover:text-zinc-400 transition-colors shrink-0"
+              aria-label="About this app"
+            >
+              <Info className="w-3.5 h-3.5" />
+            </button>
             {isScout && scoutName && (
               <span className="hidden sm:block text-sm text-zinc-400 ml-1">
                 Hey, <span className="text-green-400 font-medium">{scoutName}</span>!
@@ -401,6 +409,153 @@ export default function HomePage() {
           )}
         </section>
       </main>
+
+      {/* ── About Modal ── */}
+      {showAbout && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onClick={() => setShowAbout(false)}
+        >
+          <div
+            className="bg-zinc-900 border border-zinc-700 rounded-xl w-full max-w-lg mx-4 overflow-hidden shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div className="flex items-start justify-between px-5 py-4 border-b border-zinc-800">
+              <div>
+                <p className="text-sm font-bold text-zinc-100">FTC Nova Pyra Scout</p>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  Built by FTC Team 25619 Nova Pyra &amp; Coach Holly — vibe coded with Claude ✦
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAbout(false)}
+                className="text-zinc-600 hover:text-zinc-300 text-sm px-1 transition-colors shrink-0 mt-0.5"
+              >✕</button>
+            </div>
+
+            {/* Modal body */}
+            <div className="px-5 py-4 max-h-[70vh] overflow-y-auto flex flex-col gap-4">
+
+              {[
+                {
+                  label: 'Event Discovery',
+                  items: [
+                    'Browse all FTC events by season with Championship, Regional, League, and other type filters',
+                    'Search events by name, city, or event code',
+                    'Nova Pyra team events highlighted on the home page with countdown',
+                    'Team search — jump to any team\'s profile by number',
+                  ],
+                },
+                {
+                  label: 'Schedule',
+                  items: [
+                    'Full qualification match schedule with next-match indicator',
+                    'OPR-based win probability prediction per match',
+                    'Team highlight — focus on a specific team across all schedule rows',
+                  ],
+                },
+                {
+                  label: 'Results',
+                  items: [
+                    'Completed match results with Red/Blue scores and team breakdown',
+                    'Team highlight carries across Results and Rankings',
+                  ],
+                },
+                {
+                  label: 'Rankings',
+                  items: [
+                    'Live rankings with Ranking Points (RP), Win-Loss-Tie record',
+                    'nOPR (no-penalty OPR) visual bars for quick comparison',
+                    'Auto OPR and Teleop OPR columns with sortable headers',
+                  ],
+                },
+                {
+                  label: 'Team Profiles',
+                  items: [
+                    'Individual team page with full match history and OPR stats',
+                    'Robot photo gallery with upload support',
+                    'Pit scouting form with season-specific fields',
+                    'Events attended across seasons',
+                  ],
+                },
+                {
+                  label: 'Teams Tab',
+                  items: [
+                    'All event teams in one view with rank, OPR, pit and scout status',
+                    'Click Pit ✓ badge to view that team\'s pit scouting data',
+                    'Click scout count badge to view a full match scout summary with ratings, endgame breakdown, and notes',
+                  ],
+                },
+                {
+                  label: 'Match Scouting',
+                  items: [
+                    'Auto rating (1–5), Teleop rating (1–5), Endgame selection, and Notes per match',
+                    'Every entry attributed to the scout who submitted it',
+                    'Scouts can edit their own entries; others\' are read-only',
+                    'Admin can edit or delete any scout entry to unlock the slot',
+                    'Admin can assign scouts to specific match stations',
+                    'Entries default to "no notes taken" when notes are left blank',
+                  ],
+                },
+                {
+                  label: 'Scout Board',
+                  items: [
+                    'Cross-team view of all scouted data for the event',
+                    'Sortable by avg auto, teleop, overall rating, nOPR, or scouted match count',
+                    'Side-by-side team comparison panel',
+                    'Notes viewer with scout attribution per match',
+                  ],
+                },
+                {
+                  label: 'Pit Scouting',
+                  items: [
+                    'Season-specific structured form (drivetrain, capabilities, ratings, free-text notes)',
+                    'Responses visible on team profile page and Teams tab',
+                    'Attributed to the scout who filled it in',
+                  ],
+                },
+                {
+                  label: 'Pick List',
+                  items: [
+                    'Drag-and-drop pick list builder with Tier 1, Tier 2, and Do Not Pick columns',
+                    'Team cards show nOPR, auto/teleop OPR, avg scout rating, pit status, and note count',
+                    'My List (personal) and Merged (all scouts combined) views',
+                    'Admin can toggle pick list visibility for scouts',
+                  ],
+                },
+                {
+                  label: 'Alliance Selection',
+                  items: [
+                    'Dedicated view for alliance selection day, organized by tier',
+                    'Mark teams as Taken or Declined; restore as needed',
+                    'Admin visibility toggle to show/hide from scouts',
+                  ],
+                },
+              ].map((section, i, arr) => (
+                <div key={section.label}>
+                  <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">
+                    {section.label}
+                  </p>
+                  <ul className="space-y-1">
+                    {section.items.map(item => (
+                      <li key={item} className="text-xs text-zinc-400 flex gap-2">
+                        <span className="text-zinc-600 shrink-0">·</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                  {i < arr.length - 1 && <div className="border-t border-zinc-800 mt-4" />}
+                </div>
+              ))}
+
+              <p className="text-[10px] text-zinc-700">
+                Powered by the FIRST Tech Challenge Events API
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
