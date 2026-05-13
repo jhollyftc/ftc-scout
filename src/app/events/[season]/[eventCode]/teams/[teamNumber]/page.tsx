@@ -556,6 +556,13 @@ function RobotPhoto({
   const [error, setError] = useState<string | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
 
+  useEffect(() => {
+    if (!uploading) return
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [uploading])
+
   async function handleFile(file: File) {
     setUploading(true)
     setError(null)
@@ -590,6 +597,17 @@ function RobotPhoto({
 
   return (
     <>
+      {/* Upload overlay — blocks navigation while upload is in flight */}
+      {uploading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl px-6 py-5 flex flex-col items-center gap-3 mx-4 max-w-xs w-full text-center shadow-2xl">
+            <div className="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm font-medium text-zinc-200">Uploading photo…</p>
+            <p className="text-xs text-zinc-500">Please wait before switching tabs or navigating away</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-2">
         {/* Main photo */}
         <div
