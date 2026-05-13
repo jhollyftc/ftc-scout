@@ -1,4 +1,4 @@
-import { list, put } from '@vercel/blob'
+import { del, list, put } from '@vercel/blob'
 import type { NextRequest } from 'next/server'
 
 export interface MatchScoutEntry {
@@ -31,5 +31,14 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     JSON.stringify(data),
     { access: 'public', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' }
   )
+  return Response.json({ ok: true })
+}
+
+export async function DELETE(_req: NextRequest, ctx: Ctx) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN)
+    return Response.json({ error: 'Not configured' }, { status: 503 })
+  const { season, eventCode, matchNumber, teamNumber } = await ctx.params
+  const { blobs } = await list({ prefix: `match-scout/${season}/${eventCode}/${matchNumber}/${teamNumber}.json` })
+  if (blobs.length) await del(blobs.map(b => b.url))
   return Response.json({ ok: true })
 }

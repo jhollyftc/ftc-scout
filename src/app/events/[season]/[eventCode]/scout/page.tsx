@@ -47,6 +47,7 @@ function RatingButtons({ value, onChange }: { value: number | null; onChange: (v
 
 function TeamScoutCard({
   team, season, eventCode, matchNumber, color, endgameOptions,
+  assignedScout, scoutNames, onAssign,
 }: {
   team: HybridMatch['teams'][number]
   season: string
@@ -54,13 +55,19 @@ function TeamScoutCard({
   matchNumber: number
   color: 'red' | 'blue'
   endgameOptions: string[]
+  assignedScout: string | null
+  scoutNames?: string[]
+  onAssign?: (name: string | null) => void
 }) {
-  const { scoutName } = useScoutMode()
+  const { scoutName, isAdmin } = useScoutMode()
   const { data: saved, mutate } = useSWR<MatchScoutEntry | null>(
     `/api/match-scout/${season}/${eventCode}/${matchNumber}/${team.teamNumber}`,
     fetcher,
     { fallbackData: null, revalidateOnFocus: false, revalidateOnReconnect: false }
   )
+
+  const isMine = !!saved && saved.scoutedBy === scoutName
+  const isLocked = !!saved && !isMine && !isAdmin
 
   const [form, setForm] = useState<MatchScoutEntry>(saved ?? EMPTY_ENTRY)
   const [saving, setSaving] = useState(false)
@@ -94,64 +101,138 @@ function TeamScoutCard({
     }
   }
 
+  async function handleDelete() {
+    await fetch(`/api/match-scout/${season}/${eventCode}/${matchNumber}/${team.teamNumber}`, {
+      method: 'DELETE',
+    })
+    mutate(null, { revalidate: false })
+    setForm(EMPTY_ENTRY)
+    setSavedOk(false)
+  }
+
   const borderColor = color === 'red' ? 'border-red-500/20' : 'border-blue-500/20'
   const headerColor = color === 'red' ? 'text-red-400' : 'text-blue-400'
 
   return (
     <div className={`rounded-lg border ${borderColor} bg-zinc-900/50 p-3 flex flex-col gap-3`}>
-      <div>
-        <Link
-          href={`/events/${season}/${eventCode}/teams/${team.teamNumber}`}
-          className={`text-sm font-bold ${headerColor} hover:underline`}
-        >
-          {team.teamNumber}
-        </Link>
-        <p className="text-[10px] text-zinc-500 truncate">{team.teamName}</p>
+      {/* Header: team number + assignment badge/dropdown */}
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <Link
+            href={`/events/${season}/${eventCode}/teams/${team.teamNumber}`}
+            className={`text-sm font-bold ${headerColor} hover:underline`}
+          >
+            {team.teamNumber}
+          </Link>
+          <p className="text-[10px] text-zinc-500 truncate">{team.teamName}</p>
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          {assignedScout && (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+              assignedScout === scoutName
+                ? 'bg-sky-900/50 text-sky-400'
+                : 'bg-zinc-800 text-zinc-500'
+            }`}>
+              {assignedScout === scoutName ? 'You' : assignedScout}
+            </span>
+          )}
+          {isAdmin && scoutNames && (
+            <select
+              value={assignedScout ?? ''}
+              onChange={e => onAssign?.(e.target.value || null)}
+              className="text-[10px] bg-zinc-800 border border-zinc-700 rounded px-1 py-0.5 text-zinc-400 focus:outline-none"
+            >
+              <option value="">Unassigned</option>
+              {scoutNames.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          )}
+        </div>
       </div>
-      <div>
-        <p className="text-[10px] text-zinc-500 mb-1">Auto (1–5)</p>
-        <RatingButtons value={form.autoRating} onChange={v => set('autoRating', v)} />
-      </div>
-      <div>
-        <p className="text-[10px] text-zinc-500 mb-1">Teleop (1–5)</p>
-        <RatingButtons value={form.teleopRating} onChange={v => set('teleopRating', v)} />
-      </div>
-      <div>
-        <p className="text-[10px] text-zinc-500 mb-1">Endgame</p>
-        <select
-          value={form.endgame}
-          onChange={e => set('endgame', e.target.value)}
-          className="w-full h-7 px-2 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-200 focus:outline-none focus:border-sky-500 appearance-none"
-        >
-          <option value="">— select —</option>
-          {endgameOptions.map(o => <option key={o} value={o}>{o}</option>)}
-        </select>
-      </div>
-      <div>
-        <p className="text-[10px] text-zinc-500 mb-1">Notes</p>
-        <textarea
-          value={form.notes}
-          onChange={e => set('notes', e.target.value)}
-          placeholder="Observations…"
-          rows={2}
-          className="w-full px-2 py-1.5 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-sky-500 resize-none"
-        />
-      </div>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="h-7 px-3 text-xs rounded border border-sky-500/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 transition-colors disabled:opacity-40"
-        >
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-        {savedOk && <span className="text-[10px] text-green-400">Saved ✓</span>}
-        {saved?.scoutedAt && !savedOk && (
-          <span className="text-[10px] text-zinc-600">
-            {new Date(saved.scoutedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </span>
-        )}
-      </div>
+
+      {isLocked ? (
+        /* Read-only view for another scout's entry */
+        <div className="rounded border border-zinc-800 bg-zinc-800/40 px-2.5 py-2 flex flex-col gap-1.5">
+          <p className="text-[10px] text-zinc-600 mb-0.5">
+            Scouted by <span className="text-zinc-400">{saved?.scoutedBy}</span>
+          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-zinc-600 w-14">Auto</span>
+            <span className="text-xs text-zinc-400 font-mono">{saved?.autoRating ?? '—'}/5</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-zinc-600 w-14">Teleop</span>
+            <span className="text-xs text-zinc-400 font-mono">{saved?.teleopRating ?? '—'}/5</span>
+          </div>
+          {saved?.endgame && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-zinc-600 w-14">Endgame</span>
+              <span className="text-xs text-zinc-400">{saved.endgame}</span>
+            </div>
+          )}
+          {saved?.notes && (
+            <p className="text-xs text-zinc-500 leading-relaxed mt-0.5">{saved.notes}</p>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Admin banner when editing someone else's entry */}
+          {isAdmin && saved && !isMine && (
+            <div className="flex items-center justify-between -mb-1">
+              <span className="text-[10px] text-amber-600">Editing {saved.scoutedBy}&apos;s entry</span>
+              <button
+                onClick={handleDelete}
+                className="text-[10px] text-red-500 hover:text-red-400 transition-colors"
+              >
+                Delete submission
+              </button>
+            </div>
+          )}
+          <div>
+            <p className="text-[10px] text-zinc-500 mb-1">Auto (1–5)</p>
+            <RatingButtons value={form.autoRating} onChange={v => set('autoRating', v)} />
+          </div>
+          <div>
+            <p className="text-[10px] text-zinc-500 mb-1">Teleop (1–5)</p>
+            <RatingButtons value={form.teleopRating} onChange={v => set('teleopRating', v)} />
+          </div>
+          <div>
+            <p className="text-[10px] text-zinc-500 mb-1">Endgame</p>
+            <select
+              value={form.endgame}
+              onChange={e => set('endgame', e.target.value)}
+              className="w-full h-7 px-2 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-200 focus:outline-none focus:border-sky-500 appearance-none"
+            >
+              <option value="">— select —</option>
+              {endgameOptions.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+          <div>
+            <p className="text-[10px] text-zinc-500 mb-1">Notes</p>
+            <textarea
+              value={form.notes}
+              onChange={e => set('notes', e.target.value)}
+              placeholder="Observations…"
+              rows={2}
+              className="w-full px-2 py-1.5 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-sky-500 resize-none"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="h-7 px-3 text-xs rounded border border-sky-500/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 transition-colors disabled:opacity-40"
+            >
+              {saving ? 'Saving…' : saved ? 'Update' : 'Save'}
+            </button>
+            {savedOk && <span className="text-[10px] text-green-400">Saved ✓</span>}
+            {saved?.scoutedAt && !savedOk && (
+              <span className="text-[10px] text-zinc-600">
+                {new Date(saved.scoutedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -907,7 +988,7 @@ export default function ScoutPage({
   params: Promise<{ season: string; eventCode: string }>
 }) {
   const { season, eventCode } = use(params)
-  const { isScout } = useScoutMode()
+  const { isScout, isAdmin } = useScoutMode()
   const searchParams = useSearchParams()
   const matchParam = searchParams.get('match') ? Number(searchParams.get('match')) : null
 
@@ -922,6 +1003,35 @@ export default function ScoutPage({
     fetcher,
     { revalidateOnFocus: false, revalidateOnReconnect: false }
   )
+
+  const { data: assignments, mutate: mutateAssignments } = useSWR<Record<string, string>>(
+    isAdmin ? `/api/assignments/${season}/${eventCode}` : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  )
+  const { data: scoutNames } = useSWR<string[]>(
+    isAdmin ? `/api/scouts` : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  )
+
+  const assignTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function handleAssign(matchNumber: number, station: string, name: string | null) {
+    const key = `${matchNumber}:${station}`
+    const next = { ...(assignments ?? {}) }
+    if (name) next[key] = name
+    else delete next[key]
+    mutateAssignments(next, { revalidate: false })
+    if (assignTimerRef.current) clearTimeout(assignTimerRef.current)
+    assignTimerRef.current = setTimeout(() => {
+      fetch(`/api/assignments/${season}/${eventCode}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(next),
+      })
+    }, 500)
+  }
 
   const config = getSeasonConfig(season)
   const schedule = data?.schedule ?? []
@@ -1106,6 +1216,9 @@ export default function ScoutPage({
                           matchNumber={match.matchNumber}
                           color="red"
                           endgameOptions={config.endgameOptions}
+                          assignedScout={assignments?.[`${match.matchNumber}:${t.station}`] ?? null}
+                          scoutNames={scoutNames}
+                          onAssign={name => handleAssign(match.matchNumber, t.station, name)}
                         />
                       ))}
                     </div>
@@ -1120,6 +1233,9 @@ export default function ScoutPage({
                           matchNumber={match.matchNumber}
                           color="blue"
                           endgameOptions={config.endgameOptions}
+                          assignedScout={assignments?.[`${match.matchNumber}:${t.station}`] ?? null}
+                          scoutNames={scoutNames}
+                          onAssign={name => handleAssign(match.matchNumber, t.station, name)}
                         />
                       ))}
                     </div>
