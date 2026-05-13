@@ -563,12 +563,45 @@ function RobotPhoto({
     return () => window.removeEventListener('beforeunload', handler)
   }, [uploading])
 
+  function compressImage(file: File): Promise<File> {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file)
+      const img = new window.Image()
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const MAX = 1920
+        let { naturalWidth: w, naturalHeight: h } = img
+        if (w > MAX || h > MAX) {
+          if (w >= h) { h = Math.round(h * MAX / w); w = MAX }
+          else        { w = Math.round(w * MAX / h); h = MAX }
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+        canvas.toBlob(
+          blob => blob
+            ? resolve(new File([blob], 'photo.jpg', { type: 'image/jpeg' }))
+            : reject(new Error('Compression failed')),
+          'image/jpeg',
+          0.82
+        )
+      }
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read image')) }
+      img.src = url
+    })
+  }
+
   async function handleFile(file: File) {
     setUploading(true)
     setError(null)
     try {
+      let uploadFile: File
+      try { uploadFile = await compressImage(file) }
+      catch { uploadFile = file }
+
       const form = new FormData()
-      form.append('file', file)
+      form.append('file', uploadFile)
       form.append('season', season)
       form.append('eventCode', eventCode)
       form.append('teamNumber', teamNumber)
