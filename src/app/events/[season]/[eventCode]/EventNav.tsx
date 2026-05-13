@@ -1,8 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useSearchParams, useRouter } from 'next/navigation'
-import { useCallback } from 'react'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { Shield } from 'lucide-react'
 import { useScoutMode } from '@/lib/scout-mode'
 
@@ -29,23 +28,9 @@ export default function EventNav({
 }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const router = useRouter()
   const { isScout, isAdmin } = useScoutMode()
   const base = `/events/${season}/${eventCode}`
   const highlightTeam = searchParams.get('team') ?? ''
-
-  const setHighlight = useCallback(
-    (value: string) => {
-      const params = new URLSearchParams(searchParams.toString())
-      if (value) {
-        params.set('team', value)
-      } else {
-        params.delete('team')
-      }
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false })
-    },
-    [pathname, router, searchParams]
-  )
 
   function tabHref(suffix: string) {
     const href = `${base}${suffix}`
@@ -88,24 +73,6 @@ export default function EventNav({
         })}
       </nav>
 
-      <div className="ml-auto flex items-center gap-1.5 shrink-0">
-        <input
-          type="number"
-          placeholder="Highlight…"
-          value={highlightTeam}
-          onChange={e => setHighlight(e.target.value)}
-          className="w-24 sm:w-36 h-7 px-2 text-xs rounded-md border border-zinc-700 bg-zinc-900 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-sky-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-        />
-        {highlightTeam && (
-          <button
-            onClick={() => setHighlight('')}
-            className="text-xs text-zinc-500 hover:text-zinc-200 transition-colors px-1"
-            aria-label="Clear highlight"
-          >
-            ✕
-          </button>
-        )}
-      </div>
     </div>
   )
 }
